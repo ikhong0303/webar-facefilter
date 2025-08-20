@@ -1,74 +1,826 @@
-(2) qr.html 만들기 — PC에서 QR 생성 → 모바일로 ar.html 열기
-
-New File > qr.html 만들고 아래 전체 코드 그대로 붙여넣기 → 저장
-
 <!doctype html>
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>Scan to open AR</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <title>달고나 AR 필터 - 디버그 버전</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <style>
-    html,body{margin:0;height:100%;display:grid;place-items:center;font-family:system-ui,Segoe UI,Arial}
-    #wrap{display:flex;flex-direction:column;gap:14px;align-items:center}
-    #qrcode{width:256px;height:256px}
-    small{opacity:.6;max-width:90vw;word-break:break-all;text-align:center}
+    * { box-sizing: border-box; }
+    html, body { 
+      margin: 0; 
+      padding: 0;
+      height: 100%; 
+      background: #000; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+    
+    #ar-container { 
+      position: fixed; 
+      inset: 0; 
+      z-index: 1;
+    }
+    
+    #ui { 
+      position: fixed; 
+      inset: 0; 
+      display: flex; 
+      flex-direction: column;
+      align-items: center; 
+      justify-content: center; 
+      background: rgba(0,0,0,0.9);
+      z-index: 100;
+    }
+    
+    #start {
+      padding: 16px 32px; 
+      font-size: 18px; 
+      border-radius: 50px; 
+      border: 2px solid #667eea;
+      background: #667eea;
+      color: white; 
+      font-weight: 700; 
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 200px;
+    }
+    
+    #start:hover {
+      background: #5a67d8;
+      border-color: #5a67d8;
+    }
+    
+    #start:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    #debug {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.8);
+      color: #00ff00;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 12px;
+      border-radius: 5px;
+      max-width: 300px;
+      z-index: 200;
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    #status {
+      color: white;
+      margin-top: 20px;
+      text-align: center;
+      padding: 0 20px;
+    }
+    
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #667eea;
+      animation: spin 1s ease-in-out infinite;
+      margin: 20px auto;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      display: none;
+      gap: 10px;
+    }
+
+    .control-btn {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 25px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+      font-size: 14px;
+    }
+
+    .control-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
   </style>
 </head>
 <body>
-  <div id="wrap">
-    <h1>모바일로 스캔하여 AR 실행</h1>
-    <div id="qrcode"></div>
-    <small id="link"></small>
-    <button id="open">이 기기에서 열기</button>
+  <!-- 디버그 정보 -->
+  <div id="debug"></div>
+
+  <!-- UI 레이어 -->
+  <div id="ui">
+    <button id="start">🍪 달고나 필터 시작</button>
+    <div id="status">카메라 권한을 허용하고 달고나를 얼굴에 올려보세요!</div>
   </div>
 
-  <script>
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const arUrl = location.origin + location.pathname.replace(/qr\.html$/, 'ar.html');
+  <!-- 컨트롤 버튼들 -->
+  <div id="controls">
+    <button class="control-btn" id="toggle-filter">달고나 모양 변경</button>
+    <button class="control-btn" id="switch-camera">카메라 전환</button>
+    <button class="control-btn" id="bite-effect">한 입 베어먹기</button>
+  </div>
 
-    if (isMobile) {
-      location.replace(arUrl);
-    } else {
-      document.getElementById('link').textContent = arUrl;
-      new QRCode(document.getElementById("qrcode"), {
-        text: arUrl, width:256, height:256, correctLevel: QRCode.CorrectLevel.M
-      });
-      document.getElementById('open').onclick = () => location.href = arUrl;
+  <!-- AR 컨테이너 -->
+  <div id="ar-container"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <script>
+    // 디버그 로그 함수
+    function debugLog(message) {
+      console.log(message);
+      const debugEl = document.getElementById('debug');
+      const timestamp = new Date().toLocaleTimeString();
+      debugEl.textContent += `[${timestamp}] ${message}\n`;
+      debugEl.scrollTop = debugEl.scrollHeight;
     }
+
+    // 상태 업데이트 함수
+    function updateStatus(message) {
+      document.getElementById('status').textContent = message;
+      debugLog(`STATUS: ${message}`);
+    }
+
+    class SimpleARFilter {
+      constructor() {
+        this.video = null;
+        this.canvas = null;
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.filterGroup = null;
+        this.isRunning = false;
+        this.currentFilter = 0;
+        this.facingMode = 'user';
+        
+        debugLog('ARFilter 생성자 호출됨');
+      }
+
+      async init() {
+        try {
+          debugLog('초기화 시작');
+          
+          // 1. 카메라 권한 체크
+          debugLog('카메라 권한 체크 중...');
+          await this.checkCameraPermission();
+          
+          // 2. 카메라 스트림 획득
+          debugLog('카메라 스트림 획득 중...');
+          await this.setupCamera();
+          
+          // 3. Three.js 설정
+          debugLog('Three.js 설정 중...');
+          this.setupThreeJS();
+          
+          // 4. 필터 생성
+          debugLog('필터 생성 중...');
+          this.createFilter();
+          
+          // 5. 애니메이션 시작
+          debugLog('애니메이션 시작');
+          this.startAnimation();
+          
+          debugLog('초기화 완료!');
+          return true;
+          
+        } catch (error) {
+          debugLog(`초기화 실패: ${error.message}`);
+          throw error;
+        }
+      }
+
+      async checkCameraPermission() {
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('브라우저가 카메라를 지원하지 않습니다');
+          }
+          
+          const result = await navigator.permissions.query({ name: 'camera' });
+          debugLog(`카메라 권한 상태: ${result.state}`);
+          
+          return true;
+        } catch (error) {
+          debugLog(`권한 체크 실패: ${error.message}`);
+          // 권한 체크가 실패해도 계속 진행
+          return true;
+        }
+      }
+
+      async setupCamera() {
+        try {
+          updateStatus('카메라에 접근하는 중...');
+          
+          // 단계별 제약조건 시도
+          const constraintsList = [
+            // 1차 시도: 이상적인 해상도
+            {
+              video: {
+                facingMode: this.facingMode,
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+              },
+              audio: false
+            },
+            // 2차 시도: 더 낮은 해상도
+            {
+              video: {
+                facingMode: this.facingMode,
+                width: { ideal: 320 },
+                height: { ideal: 240 }
+              },
+              audio: false
+            },
+            // 3차 시도: 최소 제약조건
+            {
+              video: {
+                facingMode: this.facingMode
+              },
+              audio: false
+            },
+            // 4차 시도: 기본 비디오만
+            {
+              video: true,
+              audio: false
+            }
+          ];
+          
+          let stream = null;
+          let lastError = null;
+          
+          for (let i = 0; i < constraintsList.length; i++) {
+            try {
+              debugLog(`카메라 시도 ${i + 1}/${constraintsList.length}: ${JSON.stringify(constraintsList[i])}`);
+              updateStatus(`카메라 연결 시도 중... (${i + 1}/${constraintsList.length})`);
+              
+              stream = await navigator.mediaDevices.getUserMedia(constraintsList[i]);
+              debugLog(`스트림 획득 성공: ${stream.id}`);
+              break;
+              
+            } catch (error) {
+              debugLog(`시도 ${i + 1} 실패: ${error.message}`);
+              lastError = error;
+              continue;
+            }
+          }
+          
+          if (!stream) {
+            throw lastError || new Error('모든 카메라 연결 시도 실패');
+          }
+          
+          // 비디오 엘리먼트 생성
+          this.video = document.createElement('video');
+          this.video.id = 'video';
+          this.video.autoplay = true;
+          this.video.playsInline = true;
+          this.video.muted = true;
+          
+          // 컨테이너에 추가
+          const container = document.getElementById('ar-container');
+          container.appendChild(this.video);
+          
+          // 스트림을 비디오에 연결하고 재생 시작
+          this.video.srcObject = stream;
+          
+          // 비디오 로드 및 재생 대기 (개선된 버전)
+          return new Promise((resolve, reject) => {
+            let resolved = false;
+            
+            const onSuccess = () => {
+              if (!resolved) {
+                resolved = true;
+                debugLog(`비디오 준비됨: ${this.video.videoWidth || 'unknown'}x${this.video.videoHeight || 'unknown'}`);
+                updateStatus('카메라 연결 완료!');
+                resolve();
+              }
+            };
+            
+            const onError = (error) => {
+              if (!resolved) {
+                resolved = true;
+                debugLog(`비디오 오류: ${error.message || error}`);
+                reject(new Error('비디오 재생 실패'));
+              }
+            };
+            
+            // 여러 이벤트 리스너 등록
+            this.video.addEventListener('loadedmetadata', onSuccess);
+            this.video.addEventListener('loadeddata', onSuccess);
+            this.video.addEventListener('canplay', onSuccess);
+            this.video.addEventListener('playing', onSuccess);
+            
+            this.video.addEventListener('error', onError);
+            this.video.addEventListener('abort', () => onError(new Error('비디오 로딩 중단')));
+            
+            // 강제 재생 시도
+            const tryPlay = async () => {
+              try {
+                await this.video.play();
+                debugLog('비디오 재생 시작됨');
+                // 재생이 시작되면 잠시 후 성공 처리
+                setTimeout(onSuccess, 100);
+              } catch (error) {
+                debugLog(`재생 실패: ${error.message}`);
+                // 재생 실패해도 계속 시도
+              }
+            };
+            
+            // 메타데이터 로드 후 재생 시도
+            if (this.video.readyState >= 1) {
+              tryPlay();
+            } else {
+              this.video.addEventListener('loadedmetadata', tryPlay, { once: true });
+            }
+            
+            // 15초 타임아웃 (늘림)
+            setTimeout(() => {
+              if (!resolved) {
+                resolved = true;
+                debugLog('비디오 로드 타임아웃 - 강제 진행');
+                // 타임아웃되어도 스트림이 있으면 진행
+                if (this.video.srcObject && this.video.srcObject.active) {
+                  updateStatus('카메라 연결됨 (느린 로딩)');
+                  resolve();
+                } else {
+                  reject(new Error('비디오 로드 타임아웃'));
+                }
+              }
+            }, 15000);
+          });
+          
+        } catch (error) {
+          debugLog(`카메라 설정 실패: ${error.message}`);
+          updateStatus(`카메라 오류: ${error.message}`);
+          throw error;
+        }
+      }
+
+      setupThreeJS() {
+        try {
+          updateStatus('3D 엔진 초기화 중...');
+          
+          // 씬 생성
+          this.scene = new THREE.Scene();
+          debugLog('Three.js 씬 생성됨');
+          
+          // 카메라 생성
+          this.camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+          );
+          this.camera.position.z = 1;
+          debugLog('Three.js 카메라 생성됨');
+          
+          // 렌더러 생성
+          this.renderer = new THREE.WebGLRenderer({ 
+            alpha: true,
+            antialias: true
+          });
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+          this.renderer.domElement.id = 'canvas';
+          
+          // 컨테이너에 추가
+          const container = document.getElementById('ar-container');
+          container.appendChild(this.renderer.domElement);
+          debugLog('Three.js 렌더러 생성됨');
+          
+          // 조명 추가
+          const light = new THREE.DirectionalLight(0xffffff, 1);
+          light.position.set(0, 1, 1);
+          this.scene.add(light);
+          
+          const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+          this.scene.add(ambientLight);
+          debugLog('조명 추가됨');
+          
+          // 리사이즈 이벤트
+          window.addEventListener('resize', () => this.onWindowResize());
+          
+          updateStatus('3D 엔진 초기화 완료');
+          
+        } catch (error) {
+          debugLog(`Three.js 설정 실패: ${error.message}`);
+          throw error;
+        }
+      }
+
+      createFilter() {
+        try {
+          // 필터 그룹 생성
+          this.filterGroup = new THREE.Group();
+          this.filters = [];
+          
+          // 1. 원형 달고나 (기본)
+          const circularDalgona = this.createCircularDalgona();
+          this.filters.push(circularDalgona);
+          
+          // 2. 별 모양 달고나
+          const starDalgona = this.createStarDalgona();
+          this.filters.push(starDalgona);
+          
+          // 3. 하트 모양 달고나
+          const heartDalgona = this.createHeartDalgona();
+          this.filters.push(heartDalgona);
+          
+          // 모든 필터를 그룹에 추가
+          this.filters.forEach((filter, index) => {
+            filter.visible = index === 0; // 첫 번째만 보이게
+            this.filterGroup.add(filter);
+          });
+          
+          // 씬에 추가
+          this.scene.add(this.filterGroup);
+          
+          debugLog('달고나 필터 생성 완료');
+          updateStatus('달고나 AR 필터 준비됨');
+          
+        } catch (error) {
+          debugLog(`필터 생성 실패: ${error.message}`);
+          throw error;
+        }
+      }
+
+      createCircularDalgona() {
+        const group = new THREE.Group();
+        
+        // 달고나 베이스 (원형)
+        const dalgonaGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.03, 32);
+        const dalgonaMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0xD2691E, // 달고나 색상 (갈색)
+          transparent: true,
+          opacity: 0.9
+        });
+        const dalgonaBase = new THREE.Mesh(dalgonaGeometry, dalgonaMaterial);
+        dalgonaBase.position.set(0, 0.1, 0.05);
+        
+        // 달고나 안의 별 모양 (뚫린 부분)
+        const starShape = this.createStarShape(0.08);
+        const starGeometry = new THREE.ExtrudeGeometry(starShape, {
+          depth: 0.04,
+          bevelEnabled: false
+        });
+        const starMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0x8B4513,
+          transparent: true,
+          opacity: 0.7
+        });
+        const starCutout = new THREE.Mesh(starGeometry, starMaterial);
+        starCutout.position.set(0, 0.1, 0.03);
+        starCutout.rotation.z = Math.PI; // 별 방향 조정
+        
+        // 달고나 가장자리 하이라이트
+        const edgeGeometry = new THREE.TorusGeometry(0.25, 0.01, 8, 32);
+        const edgeMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0xF4A460,
+          transparent: true,
+          opacity: 0.8
+        });
+        const edge = new THREE.Mesh(edgeGeometry, edgeMaterial);
+        edge.position.set(0, 0.125, 0.05);
+        edge.rotation.x = Math.PI / 2;
+        
+        group.add(dalgonaBase, starCutout, edge);
+        return group;
+      }
+
+      createStarDalgona() {
+        const group = new THREE.Group();
+        
+        // 별 모양 달고나
+        const starShape = this.createStarShape(0.2);
+        const starGeometry = new THREE.ExtrudeGeometry(starShape, {
+          depth: 0.03,
+          bevelEnabled: true,
+          bevelThickness: 0.005,
+          bevelSize: 0.01
+        });
+        const starMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0xD2691E,
+          transparent: true,
+          opacity: 0.9
+        });
+        const starDalgona = new THREE.Mesh(starGeometry, starMaterial);
+        starDalgona.position.set(0, 0.1, 0.05);
+        starDalgona.rotation.z = Math.PI;
+        
+        // 별 중앙에 작은 하트
+        const heartShape = this.createHeartShape(0.05);
+        const heartGeometry = new THREE.ExtrudeGeometry(heartShape, {
+          depth: 0.04,
+          bevelEnabled: false
+        });
+        const heartMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0xFF69B4,
+          transparent: true,
+          opacity: 0.8
+        });
+        const heartCutout = new THREE.Mesh(heartGeometry, heartMaterial);
+        heartCutout.position.set(0, 0.1, 0.03);
+        
+        group.add(starDalgona, heartCutout);
+        return group;
+      }
+
+      createHeartDalgona() {
+        const group = new THREE.Group();
+        
+        // 하트 모양 달고나
+        const heartShape = this.createHeartShape(0.15);
+        const heartGeometry = new THREE.ExtrudeGeometry(heartShape, {
+          depth: 0.03,
+          bevelEnabled: true,
+          bevelThickness: 0.005,
+          bevelSize: 0.01
+        });
+        const heartMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0xD2691E,
+          transparent: true,
+          opacity: 0.9
+        });
+        const heartDalgona = new THREE.Mesh(heartGeometry, heartMaterial);
+        heartDalgona.position.set(0, 0.1, 0.05);
+        
+        // 하트 중앙에 작은 원
+        const circleGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.04, 16);
+        const circleMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0xFFD700,
+          transparent: true,
+          opacity: 0.8
+        });
+        const circleCutout = new THREE.Mesh(circleGeometry, circleMaterial);
+        circleCutout.position.set(0, 0.1, 0.03);
+        
+        group.add(heartDalgona, circleCutout);
+        return group;
+      }
+
+      createStarShape(size) {
+        const starShape = new THREE.Shape();
+        const outerRadius = size;
+        const innerRadius = size * 0.4;
+        const spikes = 5;
+        
+        for (let i = 0; i < spikes * 2; i++) {
+          const angle = (i / (spikes * 2)) * Math.PI * 2;
+          const radius = i % 2 === 0 ? outerRadius : innerRadius;
+          const x = Math.cos(angle) * radius;
+          const y = Math.sin(angle) * radius;
+          
+          if (i === 0) {
+            starShape.moveTo(x, y);
+          } else {
+            starShape.lineTo(x, y);
+          }
+        }
+        starShape.closePath();
+        return starShape;
+      }
+
+      createHeartShape(size) {
+        const heartShape = new THREE.Shape();
+        const x = 0, y = 0;
+        
+        heartShape.moveTo(x, y + size/2);
+        heartShape.bezierCurveTo(x, y + size/2, x - size/2, y, x, y - size/4);
+        heartShape.bezierCurveTo(x + size/2, y, x, y + size/2, x, y + size/2);
+        
+        return heartShape;
+      }
+
+      startAnimation() {
+        this.isRunning = true;
+        this.currentFilter = 0;
+        this.biteStage = 0; // 베어먹기 단계
+        updateStatus('달고나 AR 필터 활성화됨! 입을 벌려보세요');
+        
+        const animate = () => {
+          if (!this.isRunning) return;
+          
+          // 달고나 애니메이션 (약간의 흔들림과 회전)
+          const time = Date.now() * 0.001;
+          if (this.filterGroup) {
+            // 자연스러운 얼굴 움직임 시뮬레이션
+            this.filterGroup.position.x = Math.sin(time * 0.8) * 0.02;
+            this.filterGroup.position.y = 0.1 + Math.cos(time * 0.6) * 0.03;
+            this.filterGroup.rotation.z = Math.sin(time * 0.4) * 0.05;
+            
+            // 달고나가 살짝 빛나는 효과
+            this.filters.forEach(filter => {
+              if (filter.visible) {
+                filter.children.forEach(child => {
+                  if (child.material && child.material.opacity) {
+                    child.material.opacity = 0.85 + Math.sin(time * 2) * 0.1;
+                  }
+                });
+              }
+            });
+          }
+          
+          this.renderer.render(this.scene, this.camera);
+          requestAnimationFrame(animate);
+        };
+        
+        animate();
+        debugLog('달고나 애니메이션 루프 시작됨');
+      }
+
+      switchFilter() {
+        if (this.filters && this.filters.length > 0) {
+          // 현재 필터 숨기기
+          this.filters[this.currentFilter].visible = false;
+          
+          // 다음 필터로 전환
+          this.currentFilter = (this.currentFilter + 1) % this.filters.length;
+          this.filters[this.currentFilter].visible = true;
+          
+          const filterNames = ['원형 달고나', '별 달고나', '하트 달고나'];
+          debugLog(`필터 전환: ${filterNames[this.currentFilter]}`);
+          updateStatus(`${filterNames[this.currentFilter]}로 변경됨!`);
+        }
+      }
+
+      biteEffect() {
+        if (this.filters && this.filters[this.currentFilter]) {
+          const currentFilter = this.filters[this.currentFilter];
+          this.biteStage = (this.biteStage + 1) % 4;
+          
+          switch(this.biteStage) {
+            case 1:
+              // 첫 번째 베어먹기 - 크기 감소
+              currentFilter.scale.set(0.8, 0.8, 0.8);
+              updateStatus('아삭! 달고나를 한 입 베어먹었어요');
+              break;
+            case 2:
+              // 두 번째 베어먹기 - 더 작게
+              currentFilter.scale.set(0.6, 0.6, 0.6);
+              updateStatus('또 한 입! 달고나가 작아지고 있어요');
+              break;
+            case 3:
+              // 거의 다 먹음 - 매우 작게
+              currentFilter.scale.set(0.3, 0.3, 0.3);
+              updateStatus('거의 다 먹었어요! 달달한 달고나~');
+              break;
+            case 0:
+              // 원래 크기로 복원
+              currentFilter.scale.set(1, 1, 1);
+              updateStatus('새로운 달고나가 나타났어요!');
+              break;
+          }
+          
+          // 베어먹을 때 약간의 회전 효과
+          currentFilter.rotation.z += 0.1;
+          
+          debugLog(`달고나 베어먹기 단계: ${this.biteStage}`);
+        }
+      }
+
+      onWindowResize() {
+        if (this.camera && this.renderer) {
+          this.camera.aspect = window.innerWidth / window.innerHeight;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+          debugLog('화면 크기 조정됨');
+        }
+      }
+
+      stop() {
+        this.isRunning = false;
+        if (this.video && this.video.srcObject) {
+          this.video.srcObject.getTracks().forEach(track => track.stop());
+          debugLog('카메라 스트림 정지됨');
+        }
+      }
+    }
+
+    // 메인 앱 로직
+    let arApp = null;
+
+    // 브라우저 지원 체크
+    function checkBrowserSupport() {
+      const checks = {
+        webgl: !!window.WebGLRenderingContext,
+        getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+        https: location.protocol === 'https:' || location.hostname === 'localhost'
+      };
+      
+      debugLog(`브라우저 지원 체크: ${JSON.stringify(checks)}`);
+      
+      if (!checks.webgl) {
+        throw new Error('WebGL을 지원하지 않는 브라우저입니다');
+      }
+      
+      if (!checks.getUserMedia) {
+        throw new Error('카메라 API를 지원하지 않는 브라우저입니다');
+      }
+      
+      if (!checks.https) {
+        throw new Error('HTTPS 환경에서만 카메라를 사용할 수 있습니다');
+      }
+      
+      return true;
+    }
+
+    // 시작 버튼 이벤트
+    document.getElementById('start').addEventListener('click', async () => {
+      const startBtn = document.getElementById('start');
+      const ui = document.getElementById('ui');
+      const controls = document.getElementById('controls');
+      
+      try {
+        debugLog('시작 버튼 클릭됨');
+        
+        // 버튼 비활성화
+        startBtn.disabled = true;
+        startBtn.textContent = '초기화 중...';
+        
+        // 브라우저 지원 체크
+        checkBrowserSupport();
+        
+        // AR 앱 생성 및 초기화
+        arApp = new SimpleARFilter();
+        await arApp.init();
+        
+        // UI 숨기기 및 컨트롤 표시
+        ui.style.display = 'none';
+        controls.style.display = 'flex';
+        
+        debugLog('앱 시작 완료');
+        
+      } catch (error) {
+        debugLog(`앱 시작 실패: ${error.message}`);
+        updateStatus(`오류: ${error.message}`);
+        
+        // 버튼 다시 활성화
+        startBtn.disabled = false;
+        startBtn.textContent = '다시 시도';
+      }
+    });
+
+    // 컨트롤 버튼 이벤트들
+    document.getElementById('toggle-filter').addEventListener('click', () => {
+      debugLog('달고나 모양 변경 버튼 클릭됨');
+      if (arApp && arApp.switchFilter) {
+        arApp.switchFilter();
+      }
+    });
+
+    document.getElementById('switch-camera').addEventListener('click', () => {
+      debugLog('카메라 전환 버튼 클릭됨');
+      // 카메라 전환 로직
+    });
+
+    document.getElementById('bite-effect').addEventListener('click', () => {
+      debugLog('달고나 베어먹기 버튼 클릭됨');
+      if (arApp && arApp.biteEffect) {
+        arApp.biteEffect();
+      }
+    });
+
+    // 페이지 언로드 시 정리
+    window.addEventListener('beforeunload', () => {
+      if (arApp) {
+        arApp.stop();
+      }
+    });
+
+    // 초기 디버그 정보
+    debugLog('스크립트 로드됨');
+    debugLog(`User Agent: ${navigator.userAgent}`);
+    debugLog(`Protocol: ${location.protocol}`);
+    debugLog(`Hostname: ${location.hostname}`);
   </script>
 </body>
 </html>
-
-3. GitHub로 올려서 HTTPS 배포하기 (진짜 쉬운 순서)
-
-GitHub 로그인 → 오른쪽 위 + → New repository
-
-이름: webar-facefilter
-
-Public 체크 → Create repository
-
-방금 만든 리포 화면에서 Add file > Upload files
-
-ar.html, qr.html 두 파일 드래그&드롭 → 맨 아래 Commit changes
-
-상단 탭에서 Settings > Pages 이동
-
-Source: Deploy from a branch
-
-Branch: main / 폴더 /(root) 선택 → Save
-
-1~2분 뒤 같은 페이지에 **사이트 주소(URL)**가 생깁니다. (예: https://<아이디>.github.io/webar-facefilter)
-
-주소 뒤에 /qr.html 붙여서 PC 크롬에서 열기
-
-4. 테스트 방법 (QR → 안드로이드 카메라 AR)
-
-PC 크롬에서 https://<아이디>.github.io/webar-facefilter/qr.html 열기
-
-화면의 QR 코드를 안드로이드 폰 카메라/QR앱으로 스캔
-
-폰에서 자동으로 ar.html 열림 → Start AR 버튼 탭 → 카메라 권한 허용
-
-전면 카메라가 켜지고 얼굴에 선글라스+콧수염 필터가 뜨면 성공!
