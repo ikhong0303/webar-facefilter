@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Scan to open AR</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    html,body{margin:0;height:100%;display:grid;place-items:center;font-family:system-ui,Segoe UI,Arial}
+    #wrap{display:flex;flex-direction:column;gap:14px;align-items:center}
+    #qrcode{width:256px;height:256px}
+    small{opacity:.6;max-width:90vw;word-break:break-all;text-align:center}
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <h1>모바일로 스캔하여 AR 실행</h1>
+    <div id="qrcode"></div>
+    <small id="link"></small>
+    <button id="open">이 기기에서 열기</button>
+  </div>
+
+  <script>
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const arUrl = location.origin + location.pathname.replace(/qr\.html$/, 'ar.html');
+
+    if (isMobile) {
+      location.replace(arUrl);
+    } else {
+      document.getElementById('link').textContent = arUrl;
+      new QRCode(document.getElementById("qrcode"), {
+        text: arUrl, width:256, height:256, correctLevel: QRCode.CorrectLevel.M
+      });
+      document.getElementById('open').onclick = () => location.href = arUrl;
+    }
+  </script>
+</body>
+</html>

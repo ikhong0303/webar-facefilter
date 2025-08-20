@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>WebGL AR Face Filter</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <style>
+    html,body { margin:0; height:100%; background:#000; }
+    #ar-container { position:fixed; inset:0; }
+    #ui { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+    #start {
+      padding:14px 18px; font-size:16px; border-radius:10px; border:none;
+      background:#fff; color:#111; font-weight:700; box-shadow:0 6px 20px rgba(0,0,0,.25);
+    }
+    #hint { position:fixed; bottom:10px; left:50%; transform:translateX(-50%); color:#fff; opacity:.7; font-size:12px; }
+  </style>
+
+  <!-- Three.js -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+  <!-- MindAR (three 버전: 얼굴 추적) -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-three.prod.js"></script>
+</head>
+<body>
+  <!-- 일부 모바일 브라우저 정책 대응: 버튼 클릭 후 시작 -->
+  <div id="ui"><button id="start">Start AR</button></div>
+  <div id="hint">카메라 권한 팝업이 뜨면 허용을 눌러주세요</div>
+
+  <!-- MindAR가 WebGL 캔버스/비디오를 붙일 컨테이너 -->
+  <div id="ar-container"></div>
+
+  <script>
+    const container = document.querySelector('#ar-container');
+    const startBtn = document.querySelector('#start');
+    let mindarThree, renderer, scene, camera;
+
+    async function setup() {
+      // MindAR + Three 초기화 (전면 카메라 사용)
+      mindarThree = new window.MINDAR.FACE.MindARThree({
+        container,
+        videoSettings: { facingMode: "user", width: {ideal:1280}, height: {ideal:720} }
+      });
+      ({ renderer, scene, camera } = mindarThree);
+
+      // 라이트
+      scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+      const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+      dir.position.set(0,1,1);
+      scene.add(dir);
+
+      // 얼굴 앵커(1번: 코 팁 근처)
+      const anchor = mindarThree.addAnchor(1);
+
+      // ====== 간단한 필터(선글라스 + 콧수염) ======
+      const filterGroup = new THREE.Group();
+
+      // 선글라스
+      const ringGeo = new THREE.TorusGeometry(0.12, 0.015, 16, 48);
+      const lensMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness:0.2, roughness:0.4 });
+      const lensL = new THREE.Mesh(ringGeo, lensMat); lensL.position.set(-0.23, 0.08, 0);
+      const lensR = new THREE.Mesh(ringGeo, lensMat); lensR.position.set( 0.23, 0.08, 0);
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 0.02), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+      bridge.position.set(0,0.08,0);
+      const glasses = new THREE.Group();
+      glasses.add(lensL, lensR, bridge);
+
+      // 콧수염
+      const mustache = new THREE.Mesh(
+        new THREE.BoxGeometry(0.36, 0.06, 0.02),
+        new THREE.MeshStandardMaterial({ color: 0x2b1b12 })
+      );
+      mustache.position.set(0,-0.15,0);
+
+      filterGroup.add(glasses, mustache);
+      anchor.group.add(filterGroup);
+      // ===========================================
+
+      // 리사이즈/성능
+      const setSize = () => {
+        const w = container.clientWidth, h = container.clientHeight;
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        renderer.setSize(w, h);
+      };
+      window.addEventListener('resize', setSize);
+
+      await mindarThree.start(); // 카메라 권한 요청 후 시작
+      setSize();
+
+      renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+      });
+    }
+
+    startBtn.addEventListener('click', async () => {
+      document.querySelector('#ui').style.display = 'none';
+      try { await setup(); }
+      catch (e) {
+        alert('카메라를 열 수 없습니다. HTTPS 환경인지/다른 앱이 카메라 점유 중인지 확인하세요.');
+        console.error(e);
+      }
+    });
+  </script>
+</body>
+</html>
