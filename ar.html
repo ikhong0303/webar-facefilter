@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>WebGL AR Face Filter - 디버그 버전</title>
+  <title>달고나 AR 필터 - 디버그 버전</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <style>
     * { box-sizing: border-box; }
@@ -141,14 +141,15 @@
 
   <!-- UI 레이어 -->
   <div id="ui">
-    <button id="start">🎭 카메라 시작</button>
-    <div id="status">카메라 권한을 허용해주세요</div>
+    <button id="start">🍪 달고나 필터 시작</button>
+    <div id="status">카메라 권한을 허용하고 달고나를 얼굴에 올려보세요!</div>
   </div>
 
   <!-- 컨트롤 버튼들 -->
   <div id="controls">
-    <button class="control-btn" id="toggle-filter">필터 전환</button>
+    <button class="control-btn" id="toggle-filter">달고나 모양 변경</button>
     <button class="control-btn" id="switch-camera">카메라 전환</button>
+    <button class="control-btn" id="bite-effect">한 입 베어먹기</button>
   </div>
 
   <!-- AR 컨테이너 -->
@@ -348,39 +349,31 @@
         try {
           // 필터 그룹 생성
           this.filterGroup = new THREE.Group();
+          this.filters = [];
           
-          // 간단한 선글라스 만들기
-          const glassesGroup = new THREE.Group();
+          // 1. 원형 달고나 (기본)
+          const circularDalgona = this.createCircularDalgona();
+          this.filters.push(circularDalgona);
           
-          // 왼쪽 렌즈
-          const leftLens = new THREE.Mesh(
-            new THREE.RingGeometry(0.08, 0.12, 16),
-            new THREE.MeshBasicMaterial({ color: 0x333333 })
-          );
-          leftLens.position.set(-0.15, 0.05, 0);
+          // 2. 별 모양 달고나
+          const starDalgona = this.createStarDalgona();
+          this.filters.push(starDalgona);
           
-          // 오른쪽 렌즈
-          const rightLens = new THREE.Mesh(
-            new THREE.RingGeometry(0.08, 0.12, 16),
-            new THREE.MeshBasicMaterial({ color: 0x333333 })
-          );
-          rightLens.position.set(0.15, 0.05, 0);
+          // 3. 하트 모양 달고나
+          const heartDalgona = this.createHeartDalgona();
+          this.filters.push(heartDalgona);
           
-          // 브리지
-          const bridge = new THREE.Mesh(
-            new THREE.BoxGeometry(0.1, 0.02, 0.01),
-            new THREE.MeshBasicMaterial({ color: 0x222222 })
-          );
-          bridge.position.set(0, 0.05, 0);
-          
-          glassesGroup.add(leftLens, rightLens, bridge);
-          this.filterGroup.add(glassesGroup);
+          // 모든 필터를 그룹에 추가
+          this.filters.forEach((filter, index) => {
+            filter.visible = index === 0; // 첫 번째만 보이게
+            this.filterGroup.add(filter);
+          });
           
           // 씬에 추가
           this.scene.add(this.filterGroup);
           
-          debugLog('필터 생성 완료');
-          updateStatus('AR 필터 준비됨');
+          debugLog('달고나 필터 생성 완료');
+          updateStatus('달고나 AR 필터 준비됨');
           
         } catch (error) {
           debugLog(`필터 생성 실패: ${error.message}`);
@@ -388,19 +381,180 @@
         }
       }
 
+      createCircularDalgona() {
+        const group = new THREE.Group();
+        
+        // 달고나 베이스 (원형)
+        const dalgonaGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.03, 32);
+        const dalgonaMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0xD2691E, // 달고나 색상 (갈색)
+          transparent: true,
+          opacity: 0.9
+        });
+        const dalgonaBase = new THREE.Mesh(dalgonaGeometry, dalgonaMaterial);
+        dalgonaBase.position.set(0, 0.1, 0.05);
+        
+        // 달고나 안의 별 모양 (뚫린 부분)
+        const starShape = this.createStarShape(0.08);
+        const starGeometry = new THREE.ExtrudeGeometry(starShape, {
+          depth: 0.04,
+          bevelEnabled: false
+        });
+        const starMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0x8B4513,
+          transparent: true,
+          opacity: 0.7
+        });
+        const starCutout = new THREE.Mesh(starGeometry, starMaterial);
+        starCutout.position.set(0, 0.1, 0.03);
+        starCutout.rotation.z = Math.PI; // 별 방향 조정
+        
+        // 달고나 가장자리 하이라이트
+        const edgeGeometry = new THREE.TorusGeometry(0.25, 0.01, 8, 32);
+        const edgeMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0xF4A460,
+          transparent: true,
+          opacity: 0.8
+        });
+        const edge = new THREE.Mesh(edgeGeometry, edgeMaterial);
+        edge.position.set(0, 0.125, 0.05);
+        edge.rotation.x = Math.PI / 2;
+        
+        group.add(dalgonaBase, starCutout, edge);
+        return group;
+      }
+
+      createStarDalgona() {
+        const group = new THREE.Group();
+        
+        // 별 모양 달고나
+        const starShape = this.createStarShape(0.2);
+        const starGeometry = new THREE.ExtrudeGeometry(starShape, {
+          depth: 0.03,
+          bevelEnabled: true,
+          bevelThickness: 0.005,
+          bevelSize: 0.01
+        });
+        const starMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0xD2691E,
+          transparent: true,
+          opacity: 0.9
+        });
+        const starDalgona = new THREE.Mesh(starGeometry, starMaterial);
+        starDalgona.position.set(0, 0.1, 0.05);
+        starDalgona.rotation.z = Math.PI;
+        
+        // 별 중앙에 작은 하트
+        const heartShape = this.createHeartShape(0.05);
+        const heartGeometry = new THREE.ExtrudeGeometry(heartShape, {
+          depth: 0.04,
+          bevelEnabled: false
+        });
+        const heartMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0xFF69B4,
+          transparent: true,
+          opacity: 0.8
+        });
+        const heartCutout = new THREE.Mesh(heartGeometry, heartMaterial);
+        heartCutout.position.set(0, 0.1, 0.03);
+        
+        group.add(starDalgona, heartCutout);
+        return group;
+      }
+
+      createHeartDalgona() {
+        const group = new THREE.Group();
+        
+        // 하트 모양 달고나
+        const heartShape = this.createHeartShape(0.15);
+        const heartGeometry = new THREE.ExtrudeGeometry(heartShape, {
+          depth: 0.03,
+          bevelEnabled: true,
+          bevelThickness: 0.005,
+          bevelSize: 0.01
+        });
+        const heartMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0xD2691E,
+          transparent: true,
+          opacity: 0.9
+        });
+        const heartDalgona = new THREE.Mesh(heartGeometry, heartMaterial);
+        heartDalgona.position.set(0, 0.1, 0.05);
+        
+        // 하트 중앙에 작은 원
+        const circleGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.04, 16);
+        const circleMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0xFFD700,
+          transparent: true,
+          opacity: 0.8
+        });
+        const circleCutout = new THREE.Mesh(circleGeometry, circleMaterial);
+        circleCutout.position.set(0, 0.1, 0.03);
+        
+        group.add(heartDalgona, circleCutout);
+        return group;
+      }
+
+      createStarShape(size) {
+        const starShape = new THREE.Shape();
+        const outerRadius = size;
+        const innerRadius = size * 0.4;
+        const spikes = 5;
+        
+        for (let i = 0; i < spikes * 2; i++) {
+          const angle = (i / (spikes * 2)) * Math.PI * 2;
+          const radius = i % 2 === 0 ? outerRadius : innerRadius;
+          const x = Math.cos(angle) * radius;
+          const y = Math.sin(angle) * radius;
+          
+          if (i === 0) {
+            starShape.moveTo(x, y);
+          } else {
+            starShape.lineTo(x, y);
+          }
+        }
+        starShape.closePath();
+        return starShape;
+      }
+
+      createHeartShape(size) {
+        const heartShape = new THREE.Shape();
+        const x = 0, y = 0;
+        
+        heartShape.moveTo(x, y + size/2);
+        heartShape.bezierCurveTo(x, y + size/2, x - size/2, y, x, y - size/4);
+        heartShape.bezierCurveTo(x + size/2, y, x, y + size/2, x, y + size/2);
+        
+        return heartShape;
+      }
+
       startAnimation() {
         this.isRunning = true;
-        updateStatus('AR 필터 활성화됨');
+        this.currentFilter = 0;
+        this.biteStage = 0; // 베어먹기 단계
+        updateStatus('달고나 AR 필터 활성화됨! 입을 벌려보세요');
         
         const animate = () => {
           if (!this.isRunning) return;
           
-          // 간단한 애니메이션 (얼굴 감지 시뮬레이션)
+          // 달고나 애니메이션 (약간의 흔들림과 회전)
           const time = Date.now() * 0.001;
           if (this.filterGroup) {
-            this.filterGroup.position.x = Math.sin(time) * 0.1;
-            this.filterGroup.position.y = Math.cos(time * 0.8) * 0.05;
-            this.filterGroup.rotation.z = Math.sin(time * 0.5) * 0.1;
+            // 자연스러운 얼굴 움직임 시뮬레이션
+            this.filterGroup.position.x = Math.sin(time * 0.8) * 0.02;
+            this.filterGroup.position.y = 0.1 + Math.cos(time * 0.6) * 0.03;
+            this.filterGroup.rotation.z = Math.sin(time * 0.4) * 0.05;
+            
+            // 달고나가 살짝 빛나는 효과
+            this.filters.forEach(filter => {
+              if (filter.visible) {
+                filter.children.forEach(child => {
+                  if (child.material && child.material.opacity) {
+                    child.material.opacity = 0.85 + Math.sin(time * 2) * 0.1;
+                  }
+                });
+              }
+            });
           }
           
           this.renderer.render(this.scene, this.camera);
@@ -408,7 +562,57 @@
         };
         
         animate();
-        debugLog('애니메이션 루프 시작됨');
+        debugLog('달고나 애니메이션 루프 시작됨');
+      }
+
+      switchFilter() {
+        if (this.filters && this.filters.length > 0) {
+          // 현재 필터 숨기기
+          this.filters[this.currentFilter].visible = false;
+          
+          // 다음 필터로 전환
+          this.currentFilter = (this.currentFilter + 1) % this.filters.length;
+          this.filters[this.currentFilter].visible = true;
+          
+          const filterNames = ['원형 달고나', '별 달고나', '하트 달고나'];
+          debugLog(`필터 전환: ${filterNames[this.currentFilter]}`);
+          updateStatus(`${filterNames[this.currentFilter]}로 변경됨!`);
+        }
+      }
+
+      biteEffect() {
+        if (this.filters && this.filters[this.currentFilter]) {
+          const currentFilter = this.filters[this.currentFilter];
+          this.biteStage = (this.biteStage + 1) % 4;
+          
+          switch(this.biteStage) {
+            case 1:
+              // 첫 번째 베어먹기 - 크기 감소
+              currentFilter.scale.set(0.8, 0.8, 0.8);
+              updateStatus('아삭! 달고나를 한 입 베어먹었어요');
+              break;
+            case 2:
+              // 두 번째 베어먹기 - 더 작게
+              currentFilter.scale.set(0.6, 0.6, 0.6);
+              updateStatus('또 한 입! 달고나가 작아지고 있어요');
+              break;
+            case 3:
+              // 거의 다 먹음 - 매우 작게
+              currentFilter.scale.set(0.3, 0.3, 0.3);
+              updateStatus('거의 다 먹었어요! 달달한 달고나~');
+              break;
+            case 0:
+              // 원래 크기로 복원
+              currentFilter.scale.set(1, 1, 1);
+              updateStatus('새로운 달고나가 나타났어요!');
+              break;
+          }
+          
+          // 베어먹을 때 약간의 회전 효과
+          currentFilter.rotation.z += 0.1;
+          
+          debugLog(`달고나 베어먹기 단계: ${this.biteStage}`);
+        }
       }
 
       onWindowResize() {
@@ -495,13 +699,22 @@
 
     // 컨트롤 버튼 이벤트들
     document.getElementById('toggle-filter').addEventListener('click', () => {
-      debugLog('필터 전환 버튼 클릭됨');
-      // 필터 전환 로직
+      debugLog('달고나 모양 변경 버튼 클릭됨');
+      if (arApp && arApp.switchFilter) {
+        arApp.switchFilter();
+      }
     });
 
     document.getElementById('switch-camera').addEventListener('click', () => {
       debugLog('카메라 전환 버튼 클릭됨');
       // 카메라 전환 로직
+    });
+
+    document.getElementById('bite-effect').addEventListener('click', () => {
+      debugLog('달고나 베어먹기 버튼 클릭됨');
+      if (arApp && arApp.biteEffect) {
+        arApp.biteEffect();
+      }
     });
 
     // 페이지 언로드 시 정리
