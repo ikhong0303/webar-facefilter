@@ -6,38 +6,101 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <style>
     html,body { margin:0; height:100%; background:#000; }
-    #ar-container { position:fixed; inset:0; }
-    #ui { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+    /* 레이어 순서 명시 */
+    #ar-container { position:fixed; inset:0; z-index:1; }
+    #ui { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:9999; }
+    #ui, #ui * { pointer-events:auto; } /* 클릭 보장 */
     #start {
       padding:14px 18px; font-size:16px; border-radius:10px; border:none;
       background:#fff; color:#111; font-weight:700; box-shadow:0 6px 20px rgba(0,0,0,.25);
     }
-    #hint { position:fixed; bottom:10px; left:50%; transform:translateX(-50%); color:#fff; opacity:.7; font-size:12px; }
+    #hint {
+      position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
+      color:#fff; opacity:.8; font-size:12px; z-index:10000; text-align:center; white-space:pre-line;
+    }
+    #log {
+      position:fixed; top:8px; left:8px; right:8px; color:#0f0; font:12px/1.4 monospace;
+      z-index:10000; pointer-events:none; white-space:pre-wrap;
+    }
   </style>
 
   <!-- Three.js -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js" crossorigin="anonymous"></script>
   <!-- MindAR (three 버전: 얼굴 추적) -->
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-three.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-three.prod.js" crossorigin="anonymous"></script>
 </head>
 <body>
-  <!-- 일부 모바일 브라우저 정책 대응: 버튼 클릭 후 시작 -->
-  <div id="ui"><button id="start">Start AR</button></div>
-  <div id="hint">카메라 권한 팝업이 뜨면 허용을 눌러주세요</div>
+  <!-- 시작 버튼(사용자 제스처 유도) -->
+  <div id="ui">
+    <button id="start" type="button" onclick="startAR()">Start AR</button>
+  </div>
+  <div id="hint">카메라 권한 팝업이 뜨면 허용을 눌러주세요.
+(HTTPS 또는 localhost에서만 카메라가 켜집니다)</div>
+
+  <!-- 진단 로그 -->
+  <pre id="log"></pre>
 
   <!-- MindAR가 WebGL 캔버스/비디오를 붙일 컨테이너 -->
   <div id="ar-container"></div>
 
   <script>
+    // ===== 간단 로거 =====
+    const $log = document.getElementById('log');
+    function logln(msg){ try{ $log.textContent += (msg + '\n'); }catch(e){} }
+
+    // ===== DOM 참조 =====
     const container = document.querySelector('#ar-container');
-    const startBtn = document.querySelector('#start');
+    const ui = document.getElementById('ui');
+    const startBtn = document.getElementById('start');
+
+    // ===== 전역 =====
     let mindarThree, renderer, scene, camera;
 
-    async function setup() {
-      // MindAR + Three 초기화 (전면 카메라 사용)
+    // ===== 사전 진단 =====
+    (function preflight(){
+      logln('Preflight: start');
+      logln('location.protocol=' + location.protocol);
+      logln('userAgent=' + navigator.userAgent);
+      logln('mediaDevices=' + (!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)));
+      logln('THREE=' + (!!window.THREE));
+      logln('MINDAR=' + (!!window.MINDAR && !!window.MINDAR.FACE));
+      if(location.protocol !== 'https:' && location.hostname !== 'localhost'){
+        logln('⚠ HTTPS가 아니면 모바일에서 카메라가 막힙니다.');
+      }
+      // 버튼 클릭 막히는지 체크
+      startBtn.addEventListener('click', () => logln('startBtn clicked (listener)'));
+    })();
+
+    // ===== 시작 함수(이중 연결: onclick + addEventListener) =====
+    async function startAR(){
+      logln('startAR() called');
+      ui.style.display = 'none';
+      try{
+        await setup();
+      }catch(e){
+        ui.style.display = 'flex'; // 실패하면 버튼 다시 보이기
+        alert('카메라를 열 수 없습니다. HTTPS/권한/다른 앱 점유 여부를 점검하세요.');
+        logln('ERROR(startAR): ' + (e && (e.stack || e.message || e)));
+        console.error(e);
+      }
+    }
+    // addEventListener도 같이 건다(일부 환경 대비)
+    startBtn.addEventListener('click', startAR);
+
+    // ===== 메인 셋업 =====
+    async function setup(){
+      if(!window.THREE){ throw new Error('THREE.js가 로드되지 않았습니다. 네트워크/CSP 확인'); }
+      if(!(window.MINDAR && window.MINDAR.FACE && window.MINDAR.FACE.MindARThree)){
+        throw new Error('MindAR(face-three)가 로드되지 않았습니다. CDN/네트워크 확인');
+      }
+      if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
+        throw new Error('이 브라우저는 카메라 API를 지원하지 않습니다.');
+      }
+
+      logln('creating MindARThree...');
       mindarThree = new window.MINDAR.FACE.MindARThree({
         container,
-        videoSettings: { facingMode: "user", width: {ideal:1280}, height: {ideal:720} }
+        videoSettings: { facingMode: 'user', width: {ideal:1280}, height: {ideal:720} }
       });
       ({ renderer, scene, camera } = mindarThree);
 
@@ -47,12 +110,11 @@
       dir.position.set(0,1,1);
       scene.add(dir);
 
-      // 얼굴 앵커(1번: 코 팁 근처)
+      // 얼굴 앵커(1: 코팁)
       const anchor = mindarThree.addAnchor(1);
 
-      // ====== 간단한 필터(선글라스 + 콧수염) ======
+      // ====== 간단 필터 ======
       const filterGroup = new THREE.Group();
-
       // 선글라스
       const ringGeo = new THREE.TorusGeometry(0.12, 0.015, 16, 48);
       const lensMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness:0.2, roughness:0.4 });
@@ -60,8 +122,7 @@
       const lensR = new THREE.Mesh(ringGeo, lensMat); lensR.position.set( 0.23, 0.08, 0);
       const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 0.02), new THREE.MeshStandardMaterial({ color: 0x111111 }));
       bridge.position.set(0,0.08,0);
-      const glasses = new THREE.Group();
-      glasses.add(lensL, lensR, bridge);
+      const glasses = new THREE.Group(); glasses.add(lensL, lensR, bridge);
 
       // 콧수염
       const mustache = new THREE.Mesh(
@@ -72,7 +133,7 @@
 
       filterGroup.add(glasses, mustache);
       anchor.group.add(filterGroup);
-      // ===========================================
+      // =======================
 
       // 리사이즈/성능
       const setSize = () => {
@@ -82,22 +143,15 @@
       };
       window.addEventListener('resize', setSize);
 
-      await mindarThree.start(); // 카메라 권한 요청 후 시작
+      logln('mindarThree.start() ...');
+      await mindarThree.start(); // 권한 요청 → 스트림 시작
+      logln('mindar started.');
       setSize();
 
       renderer.setAnimationLoop(() => {
         renderer.render(scene, camera);
       });
     }
-
-    startBtn.addEventListener('click', async () => {
-      document.querySelector('#ui').style.display = 'none';
-      try { await setup(); }
-      catch (e) {
-        alert('카메라를 열 수 없습니다. HTTPS 환경인지/다른 앱이 카메라 점유 중인지 확인하세요.');
-        console.error(e);
-      }
-    });
   </script>
 </body>
 </html>
