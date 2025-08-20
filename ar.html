@@ -2,156 +2,520 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>WebGL AR Face Filter</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>WebGL AR Face Filter - 디버그 버전</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <style>
-    html,body { margin:0; height:100%; background:#000; }
-    /* 레이어 순서 명시 */
-    #ar-container { position:fixed; inset:0; z-index:1; }
-    #ui { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:9999; }
-    #ui, #ui * { pointer-events:auto; } /* 클릭 보장 */
+    * { box-sizing: border-box; }
+    html, body { 
+      margin: 0; 
+      padding: 0;
+      height: 100%; 
+      background: #000; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+    
+    #ar-container { 
+      position: fixed; 
+      inset: 0; 
+      z-index: 1;
+    }
+    
+    #ui { 
+      position: fixed; 
+      inset: 0; 
+      display: flex; 
+      flex-direction: column;
+      align-items: center; 
+      justify-content: center; 
+      background: rgba(0,0,0,0.9);
+      z-index: 100;
+    }
+    
     #start {
-      padding:14px 18px; font-size:16px; border-radius:10px; border:none;
-      background:#fff; color:#111; font-weight:700; box-shadow:0 6px 20px rgba(0,0,0,.25);
+      padding: 16px 32px; 
+      font-size: 18px; 
+      border-radius: 50px; 
+      border: 2px solid #667eea;
+      background: #667eea;
+      color: white; 
+      font-weight: 700; 
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 200px;
     }
-    #hint {
-      position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
-      color:#fff; opacity:.8; font-size:12px; z-index:10000; text-align:center; white-space:pre-line;
+    
+    #start:hover {
+      background: #5a67d8;
+      border-color: #5a67d8;
     }
-    #log {
-      position:fixed; top:8px; left:8px; right:8px; color:#0f0; font:12px/1.4 monospace;
-      z-index:10000; pointer-events:none; white-space:pre-wrap;
+    
+    #start:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    #debug {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.8);
+      color: #00ff00;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 12px;
+      border-radius: 5px;
+      max-width: 300px;
+      z-index: 200;
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    #status {
+      color: white;
+      margin-top: 20px;
+      text-align: center;
+      padding: 0 20px;
+    }
+    
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #667eea;
+      animation: spin 1s ease-in-out infinite;
+      margin: 20px auto;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      display: none;
+      gap: 10px;
+    }
+
+    .control-btn {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 25px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+      font-size: 14px;
+    }
+
+    .control-btn:hover {
+      background: rgba(255,255,255,0.3);
     }
   </style>
-
-  <!-- Three.js -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js" crossorigin="anonymous"></script>
-  <!-- MindAR (three 버전: 얼굴 추적) -->
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-three.prod.js" crossorigin="anonymous"></script>
 </head>
 <body>
-  <!-- 시작 버튼(사용자 제스처 유도) -->
+  <!-- 디버그 정보 -->
+  <div id="debug"></div>
+
+  <!-- UI 레이어 -->
   <div id="ui">
-    <button id="start" type="button" onclick="startAR()">Start AR</button>
+    <button id="start">🎭 카메라 시작</button>
+    <div id="status">카메라 권한을 허용해주세요</div>
   </div>
-  <div id="hint">카메라 권한 팝업이 뜨면 허용을 눌러주세요.
-(HTTPS 또는 localhost에서만 카메라가 켜집니다)</div>
 
-  <!-- 진단 로그 -->
-  <pre id="log"></pre>
+  <!-- 컨트롤 버튼들 -->
+  <div id="controls">
+    <button class="control-btn" id="toggle-filter">필터 전환</button>
+    <button class="control-btn" id="switch-camera">카메라 전환</button>
+  </div>
 
-  <!-- MindAR가 WebGL 캔버스/비디오를 붙일 컨테이너 -->
+  <!-- AR 컨테이너 -->
   <div id="ar-container"></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
   <script>
-    // ===== 간단 로거 =====
-    const $log = document.getElementById('log');
-    function logln(msg){ try{ $log.textContent += (msg + '\n'); }catch(e){} }
+    // 디버그 로그 함수
+    function debugLog(message) {
+      console.log(message);
+      const debugEl = document.getElementById('debug');
+      const timestamp = new Date().toLocaleTimeString();
+      debugEl.textContent += `[${timestamp}] ${message}\n`;
+      debugEl.scrollTop = debugEl.scrollHeight;
+    }
 
-    // ===== DOM 참조 =====
-    const container = document.querySelector('#ar-container');
-    const ui = document.getElementById('ui');
-    const startBtn = document.getElementById('start');
+    // 상태 업데이트 함수
+    function updateStatus(message) {
+      document.getElementById('status').textContent = message;
+      debugLog(`STATUS: ${message}`);
+    }
 
-    // ===== 전역 =====
-    let mindarThree, renderer, scene, camera;
-
-    // ===== 사전 진단 =====
-    (function preflight(){
-      logln('Preflight: start');
-      logln('location.protocol=' + location.protocol);
-      logln('userAgent=' + navigator.userAgent);
-      logln('mediaDevices=' + (!!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)));
-      logln('THREE=' + (!!window.THREE));
-      logln('MINDAR=' + (!!window.MINDAR && !!window.MINDAR.FACE));
-      if(location.protocol !== 'https:' && location.hostname !== 'localhost'){
-        logln('⚠ HTTPS가 아니면 모바일에서 카메라가 막힙니다.');
+    class SimpleARFilter {
+      constructor() {
+        this.video = null;
+        this.canvas = null;
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.filterGroup = null;
+        this.isRunning = false;
+        this.currentFilter = 0;
+        this.facingMode = 'user';
+        
+        debugLog('ARFilter 생성자 호출됨');
       }
-      // 버튼 클릭 막히는지 체크
-      startBtn.addEventListener('click', () => logln('startBtn clicked (listener)'));
-    })();
 
-    // ===== 시작 함수(이중 연결: onclick + addEventListener) =====
-    async function startAR(){
-      logln('startAR() called');
-      ui.style.display = 'none';
-      try{
-        await setup();
-      }catch(e){
-        ui.style.display = 'flex'; // 실패하면 버튼 다시 보이기
-        alert('카메라를 열 수 없습니다. HTTPS/권한/다른 앱 점유 여부를 점검하세요.');
-        logln('ERROR(startAR): ' + (e && (e.stack || e.message || e)));
-        console.error(e);
+      async init() {
+        try {
+          debugLog('초기화 시작');
+          
+          // 1. 카메라 권한 체크
+          debugLog('카메라 권한 체크 중...');
+          await this.checkCameraPermission();
+          
+          // 2. 카메라 스트림 획득
+          debugLog('카메라 스트림 획득 중...');
+          await this.setupCamera();
+          
+          // 3. Three.js 설정
+          debugLog('Three.js 설정 중...');
+          this.setupThreeJS();
+          
+          // 4. 필터 생성
+          debugLog('필터 생성 중...');
+          this.createFilter();
+          
+          // 5. 애니메이션 시작
+          debugLog('애니메이션 시작');
+          this.startAnimation();
+          
+          debugLog('초기화 완료!');
+          return true;
+          
+        } catch (error) {
+          debugLog(`초기화 실패: ${error.message}`);
+          throw error;
+        }
+      }
+
+      async checkCameraPermission() {
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('브라우저가 카메라를 지원하지 않습니다');
+          }
+          
+          const result = await navigator.permissions.query({ name: 'camera' });
+          debugLog(`카메라 권한 상태: ${result.state}`);
+          
+          return true;
+        } catch (error) {
+          debugLog(`권한 체크 실패: ${error.message}`);
+          // 권한 체크가 실패해도 계속 진행
+          return true;
+        }
+      }
+
+      async setupCamera() {
+        try {
+          updateStatus('카메라에 접근하는 중...');
+          
+          const constraints = {
+            video: {
+              facingMode: this.facingMode,
+              width: { ideal: 640, max: 1280 },
+              height: { ideal: 480, max: 720 }
+            },
+            audio: false
+          };
+          
+          debugLog(`카메라 제약조건: ${JSON.stringify(constraints)}`);
+          
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          debugLog(`스트림 획득 성공: ${stream.id}`);
+          
+          // 비디오 엘리먼트 생성
+          this.video = document.createElement('video');
+          this.video.id = 'video';
+          this.video.srcObject = stream;
+          this.video.autoplay = true;
+          this.video.playsInline = true;
+          this.video.muted = true;
+          
+          // 컨테이너에 추가
+          const container = document.getElementById('ar-container');
+          container.appendChild(this.video);
+          
+          // 비디오 로드 대기
+          return new Promise((resolve, reject) => {
+            this.video.addEventListener('loadedmetadata', () => {
+              debugLog(`비디오 메타데이터 로드됨: ${this.video.videoWidth}x${this.video.videoHeight}`);
+              updateStatus('카메라 연결됨');
+              resolve();
+            });
+            
+            this.video.addEventListener('error', (e) => {
+              debugLog(`비디오 오류: ${e.message}`);
+              reject(new Error('비디오 로드 실패'));
+            });
+            
+            // 5초 타임아웃
+            setTimeout(() => {
+              reject(new Error('비디오 로드 타임아웃'));
+            }, 5000);
+          });
+          
+        } catch (error) {
+          debugLog(`카메라 설정 실패: ${error.message}`);
+          updateStatus(`카메라 오류: ${error.message}`);
+          throw error;
+        }
+      }
+
+      setupThreeJS() {
+        try {
+          updateStatus('3D 엔진 초기화 중...');
+          
+          // 씬 생성
+          this.scene = new THREE.Scene();
+          debugLog('Three.js 씬 생성됨');
+          
+          // 카메라 생성
+          this.camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+          );
+          this.camera.position.z = 1;
+          debugLog('Three.js 카메라 생성됨');
+          
+          // 렌더러 생성
+          this.renderer = new THREE.WebGLRenderer({ 
+            alpha: true,
+            antialias: true
+          });
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+          this.renderer.domElement.id = 'canvas';
+          
+          // 컨테이너에 추가
+          const container = document.getElementById('ar-container');
+          container.appendChild(this.renderer.domElement);
+          debugLog('Three.js 렌더러 생성됨');
+          
+          // 조명 추가
+          const light = new THREE.DirectionalLight(0xffffff, 1);
+          light.position.set(0, 1, 1);
+          this.scene.add(light);
+          
+          const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+          this.scene.add(ambientLight);
+          debugLog('조명 추가됨');
+          
+          // 리사이즈 이벤트
+          window.addEventListener('resize', () => this.onWindowResize());
+          
+          updateStatus('3D 엔진 초기화 완료');
+          
+        } catch (error) {
+          debugLog(`Three.js 설정 실패: ${error.message}`);
+          throw error;
+        }
+      }
+
+      createFilter() {
+        try {
+          // 필터 그룹 생성
+          this.filterGroup = new THREE.Group();
+          
+          // 간단한 선글라스 만들기
+          const glassesGroup = new THREE.Group();
+          
+          // 왼쪽 렌즈
+          const leftLens = new THREE.Mesh(
+            new THREE.RingGeometry(0.08, 0.12, 16),
+            new THREE.MeshBasicMaterial({ color: 0x333333 })
+          );
+          leftLens.position.set(-0.15, 0.05, 0);
+          
+          // 오른쪽 렌즈
+          const rightLens = new THREE.Mesh(
+            new THREE.RingGeometry(0.08, 0.12, 16),
+            new THREE.MeshBasicMaterial({ color: 0x333333 })
+          );
+          rightLens.position.set(0.15, 0.05, 0);
+          
+          // 브리지
+          const bridge = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 0.02, 0.01),
+            new THREE.MeshBasicMaterial({ color: 0x222222 })
+          );
+          bridge.position.set(0, 0.05, 0);
+          
+          glassesGroup.add(leftLens, rightLens, bridge);
+          this.filterGroup.add(glassesGroup);
+          
+          // 씬에 추가
+          this.scene.add(this.filterGroup);
+          
+          debugLog('필터 생성 완료');
+          updateStatus('AR 필터 준비됨');
+          
+        } catch (error) {
+          debugLog(`필터 생성 실패: ${error.message}`);
+          throw error;
+        }
+      }
+
+      startAnimation() {
+        this.isRunning = true;
+        updateStatus('AR 필터 활성화됨');
+        
+        const animate = () => {
+          if (!this.isRunning) return;
+          
+          // 간단한 애니메이션 (얼굴 감지 시뮬레이션)
+          const time = Date.now() * 0.001;
+          if (this.filterGroup) {
+            this.filterGroup.position.x = Math.sin(time) * 0.1;
+            this.filterGroup.position.y = Math.cos(time * 0.8) * 0.05;
+            this.filterGroup.rotation.z = Math.sin(time * 0.5) * 0.1;
+          }
+          
+          this.renderer.render(this.scene, this.camera);
+          requestAnimationFrame(animate);
+        };
+        
+        animate();
+        debugLog('애니메이션 루프 시작됨');
+      }
+
+      onWindowResize() {
+        if (this.camera && this.renderer) {
+          this.camera.aspect = window.innerWidth / window.innerHeight;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+          debugLog('화면 크기 조정됨');
+        }
+      }
+
+      stop() {
+        this.isRunning = false;
+        if (this.video && this.video.srcObject) {
+          this.video.srcObject.getTracks().forEach(track => track.stop());
+          debugLog('카메라 스트림 정지됨');
+        }
       }
     }
-    // addEventListener도 같이 건다(일부 환경 대비)
-    startBtn.addEventListener('click', startAR);
 
-    // ===== 메인 셋업 =====
-    async function setup(){
-      if(!window.THREE){ throw new Error('THREE.js가 로드되지 않았습니다. 네트워크/CSP 확인'); }
-      if(!(window.MINDAR && window.MINDAR.FACE && window.MINDAR.FACE.MindARThree)){
-        throw new Error('MindAR(face-three)가 로드되지 않았습니다. CDN/네트워크 확인');
-      }
-      if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
-        throw new Error('이 브라우저는 카메라 API를 지원하지 않습니다.');
-      }
+    // 메인 앱 로직
+    let arApp = null;
 
-      logln('creating MindARThree...');
-      mindarThree = new window.MINDAR.FACE.MindARThree({
-        container,
-        videoSettings: { facingMode: 'user', width: {ideal:1280}, height: {ideal:720} }
-      });
-      ({ renderer, scene, camera } = mindarThree);
-
-      // 라이트
-      scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-      const dir = new THREE.DirectionalLight(0xffffff, 0.6);
-      dir.position.set(0,1,1);
-      scene.add(dir);
-
-      // 얼굴 앵커(1: 코팁)
-      const anchor = mindarThree.addAnchor(1);
-
-      // ====== 간단 필터 ======
-      const filterGroup = new THREE.Group();
-      // 선글라스
-      const ringGeo = new THREE.TorusGeometry(0.12, 0.015, 16, 48);
-      const lensMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness:0.2, roughness:0.4 });
-      const lensL = new THREE.Mesh(ringGeo, lensMat); lensL.position.set(-0.23, 0.08, 0);
-      const lensR = new THREE.Mesh(ringGeo, lensMat); lensR.position.set( 0.23, 0.08, 0);
-      const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 0.02), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-      bridge.position.set(0,0.08,0);
-      const glasses = new THREE.Group(); glasses.add(lensL, lensR, bridge);
-
-      // 콧수염
-      const mustache = new THREE.Mesh(
-        new THREE.BoxGeometry(0.36, 0.06, 0.02),
-        new THREE.MeshStandardMaterial({ color: 0x2b1b12 })
-      );
-      mustache.position.set(0,-0.15,0);
-
-      filterGroup.add(glasses, mustache);
-      anchor.group.add(filterGroup);
-      // =======================
-
-      // 리사이즈/성능
-      const setSize = () => {
-        const w = container.clientWidth, h = container.clientHeight;
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-        renderer.setSize(w, h);
+    // 브라우저 지원 체크
+    function checkBrowserSupport() {
+      const checks = {
+        webgl: !!window.WebGLRenderingContext,
+        getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+        https: location.protocol === 'https:' || location.hostname === 'localhost'
       };
-      window.addEventListener('resize', setSize);
-
-      logln('mindarThree.start() ...');
-      await mindarThree.start(); // 권한 요청 → 스트림 시작
-      logln('mindar started.');
-      setSize();
-
-      renderer.setAnimationLoop(() => {
-        renderer.render(scene, camera);
-      });
+      
+      debugLog(`브라우저 지원 체크: ${JSON.stringify(checks)}`);
+      
+      if (!checks.webgl) {
+        throw new Error('WebGL을 지원하지 않는 브라우저입니다');
+      }
+      
+      if (!checks.getUserMedia) {
+        throw new Error('카메라 API를 지원하지 않는 브라우저입니다');
+      }
+      
+      if (!checks.https) {
+        throw new Error('HTTPS 환경에서만 카메라를 사용할 수 있습니다');
+      }
+      
+      return true;
     }
+
+    // 시작 버튼 이벤트
+    document.getElementById('start').addEventListener('click', async () => {
+      const startBtn = document.getElementById('start');
+      const ui = document.getElementById('ui');
+      const controls = document.getElementById('controls');
+      
+      try {
+        debugLog('시작 버튼 클릭됨');
+        
+        // 버튼 비활성화
+        startBtn.disabled = true;
+        startBtn.textContent = '초기화 중...';
+        
+        // 브라우저 지원 체크
+        checkBrowserSupport();
+        
+        // AR 앱 생성 및 초기화
+        arApp = new SimpleARFilter();
+        await arApp.init();
+        
+        // UI 숨기기 및 컨트롤 표시
+        ui.style.display = 'none';
+        controls.style.display = 'flex';
+        
+        debugLog('앱 시작 완료');
+        
+      } catch (error) {
+        debugLog(`앱 시작 실패: ${error.message}`);
+        updateStatus(`오류: ${error.message}`);
+        
+        // 버튼 다시 활성화
+        startBtn.disabled = false;
+        startBtn.textContent = '다시 시도';
+      }
+    });
+
+    // 컨트롤 버튼 이벤트들
+    document.getElementById('toggle-filter').addEventListener('click', () => {
+      debugLog('필터 전환 버튼 클릭됨');
+      // 필터 전환 로직
+    });
+
+    document.getElementById('switch-camera').addEventListener('click', () => {
+      debugLog('카메라 전환 버튼 클릭됨');
+      // 카메라 전환 로직
+    });
+
+    // 페이지 언로드 시 정리
+    window.addEventListener('beforeunload', () => {
+      if (arApp) {
+        arApp.stop();
+      }
+    });
+
+    // 초기 디버그 정보
+    debugLog('스크립트 로드됨');
+    debugLog(`User Agent: ${navigator.userAgent}`);
+    debugLog(`Protocol: ${location.protocol}`);
+    debugLog(`Hostname: ${location.hostname}`);
   </script>
 </body>
 </html>
