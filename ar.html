@@ -610,9 +610,10 @@ filterPopup.addEventListener('click', (e) => {
 
         // 현재 모드 안내
         const switchBtn = document.getElementById('switch-camera');
-        const initialModeKor = arApp.facingMode === 'user' ? '전면' : '후면';
-        switchBtn.textContent = `카메라 전환 (${initialModeKor})`;
-        updateStatus(`${initialModeKor} 카메라 사용 중`);
+        const currentModeKor = arApp.facingMode === 'user' ? '전면' : '후면';
+        const nextModeKor = arApp.facingMode === 'user' ? '후면' : '전면';
+        switchBtn.textContent = `카메라 전환 (${nextModeKor})`;
+        updateStatus(`${currentModeKor} 카메라 사용 중`);
 
         // UI 숨기기 및 컨트롤 표시
         ui.style.display = 'none';
@@ -643,9 +644,10 @@ filterPopup.addEventListener('click', (e) => {
         try {
           arApp.stop();
           await arApp.init();
-          const modeKor = arApp.facingMode === 'user' ? '전면' : '후면';
-          updateStatus(`${modeKor} 카메라 사용 중`);
-          switchBtn.textContent = `카메라 전환 (${modeKor})`;
+          const currentModeKor = arApp.facingMode === 'user' ? '전면' : '후면';
+          const nextModeKor = arApp.facingMode === 'user' ? '후면' : '전면';
+          updateStatus(`${currentModeKor} 카메라 사용 중`);
+          switchBtn.textContent = `카메라 전환 (${nextModeKor})`;
           debugLog(`카메라가 ${arApp.facingMode} 모드로 전환됨`);
         } catch (error) {
           debugLog(`카메라 전환 실패: ${error.message}`);
@@ -656,8 +658,8 @@ filterPopup.addEventListener('click', (e) => {
           try {
             arApp.stop();
             await arApp.init();
-            const modeKor = arApp.facingMode === 'user' ? '전면' : '후면';
-            switchBtn.textContent = `카메라 전환 (${modeKor})`;
+            const nextModeKor = arApp.facingMode === 'user' ? '후면' : '전면';
+            switchBtn.textContent = `카메라 전환 (${nextModeKor})`;
           } catch (e) {
             debugLog(`카메라 복구 실패: ${e.message}`);
           }
