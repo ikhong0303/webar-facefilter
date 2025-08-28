@@ -155,6 +155,8 @@
   <div id="ar-container"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.min.js"></script>
 
   <script>
     // 디버그 로그 함수
@@ -183,7 +185,9 @@
         this.isRunning = false;
         this.currentFilter = 0;
         this.facingMode = 'user';
-        
+        this.faceMesh = null;
+        this.cameraUtils = null;
+
         debugLog('ARFilter 생성자 호출됨');
       }
 
@@ -206,8 +210,20 @@
           // 4. 필터 생성
           debugLog('필터 생성 중...');
           this.createFilter();
-          
-          // 5. 애니메이션 시작
+
+          // 5. FaceMesh 초기화
+          this.faceMesh = new FaceMesh({
+            locateFile: (file) =>
+              `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+          });
+          this.faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true});
+          this.faceMesh.onResults(this.onFaceResults.bind(this));
+          this.cameraUtils = new Camera(this.video, {onFrame: async () => {
+            await this.faceMesh.send({image: this.video});
+          }});
+          this.cameraUtils.start();
+
+          // 6. 애니메이션 시작
           debugLog('애니메이션 시작');
           this.startAnimation();
           
@@ -395,20 +411,22 @@
         const animate = () => {
           if (!this.isRunning) return;
           
-          // 간단한 애니메이션 (얼굴 감지 시뮬레이션)
-          const time = Date.now() * 0.001;
-          if (this.filterGroup) {
-            this.filterGroup.position.x = Math.sin(time) * 0.1;
-            this.filterGroup.position.y = Math.cos(time * 0.8) * 0.05;
-            this.filterGroup.rotation.z = Math.sin(time * 0.5) * 0.1;
-          }
-          
           this.renderer.render(this.scene, this.camera);
           requestAnimationFrame(animate);
         };
-        
+
         animate();
         debugLog('애니메이션 루프 시작됨');
+      }
+
+      onFaceResults(results) {
+        if (!results.multiFaceLandmarks.length) return;
+        const nose = results.multiFaceLandmarks[0][1];
+        this.filterGroup.position.set(
+          nose.x * 2 - 1,
+          -nose.y * 2 + 1,
+          -nose.z
+        );
       }
 
       onWindowResize() {
