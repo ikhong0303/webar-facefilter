@@ -270,7 +270,6 @@ const OFFSET_Y = -0.1;
         this.isRunning = false;
         this.facingMode = 'user';
         this.faceMesh = null;
-        this.cameraUtils = null;
 
         debugLog('ARFilter 생성자 호출됨');
       }
@@ -303,26 +302,18 @@ const OFFSET_Y = -0.1;
           });
           this.faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true});
           this.faceMesh.onResults(this.onFaceResults.bind(this));
-          this.cameraUtils = new Camera(this.video, {
-            onFrame: async () => {
-              await this.faceMesh.send({image: this.video});
-            },
-            facingMode: this.facingMode
-          });
-          await this.cameraUtils.start();
-          const stream = this.video.srcObject;
-          const actualMode = stream.getVideoTracks()[0].getSettings().facingMode;
-          this.facingMode = actualMode || this.facingMode;
-          debugLog(`실제 카메라 모드: ${this.facingMode}`);
-          updateStatus(`카메라 연결됨 (${this.facingMode})`);
-
-          // 6. 애니메이션 시작
+          const processVideo = async () => {
+            if (!this.isRunning) return;
+            await this.faceMesh.send({image: this.video});
+            requestAnimationFrame(processVideo);
+          };
           debugLog('애니메이션 시작');
           this.startAnimation();
-          
+          processVideo();
+
           debugLog('초기화 완료!');
           return true;
-          
+
         } catch (error) {
           debugLog(`초기화 실패: ${error.message}`);
           throw error;
@@ -366,6 +357,28 @@ const OFFSET_Y = -0.1;
           this.video.addEventListener('loadedmetadata', () => {
             debugLog(`비디오 메타데이터 로드됨: ${this.video.videoWidth}x${this.video.videoHeight}`);
           });
+
+          let stream;
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: { exact: this.facingMode } }
+            });
+          } catch (err) {
+            debugLog(`지정한 카메라 사용 실패: ${err.message}`);
+            updateStatus('후면 카메라를 찾을 수 없습니다. 전면 카메라로 전환합니다.');
+            this.facingMode = 'user';
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: 'user' }
+            });
+          }
+
+          this.video.srcObject = stream;
+          await this.video.play();
+
+          const actualMode = stream.getVideoTracks()[0].getSettings().facingMode;
+          this.facingMode = actualMode || this.facingMode;
+          debugLog(`실제 카메라 모드: ${this.facingMode}`);
+          updateStatus(`카메라 연결됨 (${this.facingMode})`);
 
         } catch (error) {
           debugLog(`카메라 설정 실패: ${error.message}`);
@@ -496,7 +509,6 @@ onFaceResults(results) {
 
       async stop() {
         this.isRunning = false;
-        if (this.cameraUtils) await this.cameraUtils.stop();
         if (this.video && this.video.srcObject) {
           this.video.srcObject.getTracks().forEach(t => t.stop());
           this.video.remove();
