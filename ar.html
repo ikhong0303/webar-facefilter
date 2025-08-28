@@ -166,6 +166,22 @@
       height: 80px;
       object-fit: contain;
       margin: 4px;
+      cursor: pointer;
+    }
+
+    #filter-popup {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.5);
+      z-index: 60;
+      gap: 20px;
+    }
+
+    #filter-popup.show {
+      display: flex;
     }
 
     .control-btn:hover {
@@ -185,11 +201,13 @@
 
   <!-- 컨트롤 버튼들 -->
   <div id="controls">
-    <div class="dropdown">
-      <button class="control-btn" id="filter-select">필터 선택</button>
-      <div id="filter-list" class="dropdown-list"></div>
-    </div>
+    <button class="control-btn" id="filter-select">필터 선택</button>
     <button class="control-btn" id="switch-camera">카메라 전환</button>
+  </div>
+  <div id="filter-popup">
+    <img src="filters/Candy.png" class="filter-thumb" data-index="0" />
+    <img src="filters/Cookie.png" class="filter-thumb" data-index="1" />
+    <img src="filters/Star.png" class="filter-thumb" data-index="2" />
   </div>
 
   <!-- AR 컨테이너 -->
@@ -478,28 +496,27 @@
     // 메인 앱 로직
     let arApp = null;
 
-    const filterList = document.getElementById('filter-list');
-    FILTERS.forEach((src, idx) => {
-      const name = src.split('/').pop().replace('.png','');
-      const item = document.createElement('div');
-      const img = document.createElement('img');
-      img.src = src;          // 예: './filters/beard.png'
-      img.alt = name;         // 접근성용 설명
-      img.className = 'filter-thumb';
-      item.appendChild(img);
-      item.className = 'dropdown-item';
-      item.onclick = () => {
+    const filterPopup = document.getElementById('filter-popup');
+    const thumbs = filterPopup.querySelectorAll('img');
+    thumbs.forEach((img) => {
+      img.addEventListener('click', () => {
+        const idx = parseInt(img.dataset.index, 10);
         if (arApp) {
           arApp.setFilter(idx);
         }
-        filterList.classList.remove('show');
-      };
-      filterList.appendChild(item);
+        filterPopup.classList.remove('show');
+      });
     });
 
     document.getElementById('filter-select').addEventListener('click', () => {
       debugLog('필터 선택 버튼 클릭됨');
-      filterList.classList.toggle('show');
+      filterPopup.classList.add('show');
+    });
+
+    filterPopup.addEventListener('click', (e) => {
+      if (e.target === filterPopup) {
+        filterPopup.classList.remove('show');
+      }
     });
 
     // 브라우저 지원 체크
