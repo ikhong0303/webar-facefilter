@@ -494,9 +494,9 @@ onFaceResults(results) {
         }
       }
 
-      stop() {
+      async stop() {
         this.isRunning = false;
-        if (this.cameraUtils) this.cameraUtils.stop();
+        if (this.cameraUtils) await this.cameraUtils.stop();
         if (this.video && this.video.srcObject) {
           this.video.srcObject.getTracks().forEach(t => t.stop());
           this.video.remove();
@@ -505,6 +505,7 @@ onFaceResults(results) {
         if (this.renderer && this.renderer.domElement) {
           this.renderer.domElement.remove();
         }
+        return Promise.resolve();
       }
     }
 
@@ -622,7 +623,7 @@ filterPopup.addEventListener('click', (e) => {
         arApp.facingMode = (arApp.facingMode === 'user') ? 'environment' : 'user';
 
         try {
-          arApp.stop();
+          await arApp.stop();
           await arApp.init();
           const currentModeKor = arApp.facingMode === 'user' ? '전면' : '후면';
           const nextModeKor = arApp.facingMode === 'user' ? '후면' : '전면';
@@ -636,7 +637,7 @@ filterPopup.addEventListener('click', (e) => {
           // 이전 모드로 복구
           arApp.facingMode = prevMode;
           try {
-            arApp.stop();
+            await arApp.stop();
             await arApp.init();
             const nextModeKor = arApp.facingMode === 'user' ? '후면' : '전면';
             switchBtn.textContent = `카메라 전환 (${nextModeKor})`;
