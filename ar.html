@@ -238,6 +238,8 @@
         'filters/Star.png'
       ];
 
+      const OFFSET_Y = 0.2; // 상황에 따라 조정
+
     class SimpleARFilter {
       constructor() {
         this.video = null;
@@ -471,11 +473,11 @@
 
       onFaceResults(results) {
         if (!results.multiFaceLandmarks.length) return;
-        const nose = results.multiFaceLandmarks[0][1];
+        const forehead = results.multiFaceLandmarks[0][10]; // 또는 151
         this.filterGroup.position.set(
-          nose.x * 2 - 1,
-          -nose.y * 2 + 1,
-          -nose.z
+          forehead.x * 2 - 1,
+          -forehead.y * 2 + 1 + OFFSET_Y,
+          -forehead.z
         );
       }
 
