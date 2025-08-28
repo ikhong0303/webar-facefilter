@@ -130,6 +130,18 @@
       font-size: 14px;
     }
 
+    .filter-thumb {
+      width: 60px;
+      height: 60px;
+      margin: 0 5px;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .filter-thumb:hover {
+      border-color: #fff;
+    }
+
     .control-btn:hover {
       background: rgba(255,255,255,0.3);
     }
@@ -149,6 +161,7 @@
   <div id="controls">
     <button class="control-btn" id="toggle-filter">필터 전환</button>
     <button class="control-btn" id="switch-camera">카메라 전환</button>
+    <div id="filter-options"></div>
   </div>
 
   <!-- AR 컨테이너 -->
@@ -174,10 +187,10 @@
       debugLog(`STATUS: ${message}`);
     }
       const FILTERS = [
-        'filters/crown.png',
-        'filters/glasses.png',
-        'filters/mustache.png'
-      ]; // 실제 이미지 파일은 별도로 추가
+        'filters/Candy.png',
+        'filters/Cookie.png',
+        'filters/Star.png'
+      ];
 
     class SimpleARFilter {
       constructor() {
@@ -366,47 +379,29 @@
       }
 
       createFilter() {
-        try {
-          // 필터 그룹 생성
-          this.filterGroup = new THREE.Group();
-          
-          // 간단한 선글라스 만들기
-          const glassesGroup = new THREE.Group();
-          
-          // 왼쪽 렌즈
-          const leftLens = new THREE.Mesh(
-            new THREE.RingGeometry(0.08, 0.12, 16),
-            new THREE.MeshBasicMaterial({ color: 0x333333 })
-          );
-          leftLens.position.set(-0.15, 0.05, 0);
-          
-          // 오른쪽 렌즈
-          const rightLens = new THREE.Mesh(
-            new THREE.RingGeometry(0.08, 0.12, 16),
-            new THREE.MeshBasicMaterial({ color: 0x333333 })
-          );
-          rightLens.position.set(0.15, 0.05, 0);
-          
-          // 브리지
-          const bridge = new THREE.Mesh(
-            new THREE.BoxGeometry(0.1, 0.02, 0.01),
-            new THREE.MeshBasicMaterial({ color: 0x222222 })
-          );
-          bridge.position.set(0, 0.05, 0);
-          
-          glassesGroup.add(leftLens, rightLens, bridge);
-          this.filterGroup.add(glassesGroup);
-          
-          // 씬에 추가
+        this.filterGroup = new THREE.Group();
+        const loader = new THREE.TextureLoader();
+        loader.load(FILTERS[this.currentFilter], texture => {
+          const geometry = new THREE.PlaneGeometry(0.5, 0.5);
+          const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+          const mesh = new THREE.Mesh(geometry, material);
+          this.filterGroup.add(mesh);
           this.scene.add(this.filterGroup);
-          
-          debugLog('필터 생성 완료');
-          updateStatus('AR 필터 준비됨');
-          
-        } catch (error) {
-          debugLog(`필터 생성 실패: ${error.message}`);
-          throw error;
-        }
+        });
+      }
+
+      setFilter(index) {
+        this.currentFilter = index;
+        this.updateFilterTexture();
+      }
+
+      updateFilterTexture() {
+        const loader = new THREE.TextureLoader();
+        loader.load(FILTERS[this.currentFilter], texture => {
+          const mesh = this.filterGroup.children[0];
+          mesh.material.map = texture;
+          mesh.material.needsUpdate = true;
+        });
       }
 
       startAnimation() {
@@ -454,6 +449,14 @@
 
     // 메인 앱 로직
     let arApp = null;
+
+    FILTERS.forEach((src, idx) => {
+      const img = document.createElement('img');
+      img.src = src;
+      img.className = 'filter-thumb';
+      img.onclick = () => arApp.setFilter(idx);
+      document.getElementById('filter-options').appendChild(img);
+    });
 
     // 브라우저 지원 체크
     function checkBrowserSupport() {
