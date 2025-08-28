@@ -229,7 +229,6 @@
         this.renderer = null;
         this.filterGroup = null;
         this.isRunning = false;
-        this.currentFilter = 0;
         this.facingMode = 'user';
         this.faceMesh = null;
         this.cameraUtils = null;
@@ -238,6 +237,7 @@
       }
 
       async init() {
+        this.currentFilter = Math.floor(Math.random() * FILTERS.length);
         try {
           debugLog('초기화 시작');
           
