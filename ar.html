@@ -214,6 +214,7 @@
 
   <!-- 컨트롤 버튼들 -->
   <div id="controls">
+    <button class="control-btn" id="toggle-debug">메시지창 열기/닫기</button>
     <button class="control-btn" id="filter-select">필터 선택</button>
     <button class="control-btn" id="switch-camera">카메라 전환</button>
     <button id="capture-photo">촬영</button>
@@ -547,11 +548,20 @@ onFaceResults(results) {
       filterPopup.classList.add('show');
     });
 
-    filterPopup.addEventListener('click', (e) => {
-      if (e.target === filterPopup) {
-        filterPopup.classList.remove('show');
-      }
+filterPopup.addEventListener('click', (e) => {
+  if (e.target === filterPopup) {
+    filterPopup.classList.remove('show');
+  }
+});
+
+    const debugToggleBtn = document.getElementById('toggle-debug');
+    const debugEl = document.getElementById('debug');
+    debugToggleBtn.addEventListener('click', () => {
+      const isHidden = debugEl.style.display === 'none';
+      debugEl.style.display = isHidden ? 'block' : 'none';
+      debugToggleBtn.textContent = isHidden ? '메시지창 닫기' : '메시지창 열기';
     });
+    debugToggleBtn.textContent = debugEl.style.display === 'none' ? '메시지창 열기' : '메시지창 닫기';
 
     // 브라우저 지원 체크
     function checkBrowserSupport() {
