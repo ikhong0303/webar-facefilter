@@ -232,13 +232,17 @@
       document.getElementById('status').textContent = message;
       debugLog(`STATUS: ${message}`);
     }
-      const FILTERS = [
-        'filters/Candy.png',
-        'filters/Cookie.png',
-        'filters/Star.png'
-      ];
+const FILTERS = [
+  'filters/Candy.png',
+  'filters/Cookie.png',
+  'filters/Star.png'
+];
 
-      const OFFSET_Y = 0.2; // 상황에 따라 조정
+// 이마 기준 포인트 선택: 10(이마 중심) 또는 151(더 위)
+const ANCHOR_INDEX = 10;
+
+// 이 값으로 미세하게 위로 더 올리고 싶으면 0.02 ~ 0.15 사이에서 조절
+const OFFSET_Y = 0.08;
 
     class SimpleARFilter {
       constructor() {
@@ -471,15 +475,20 @@
         debugLog('애니메이션 루프 시작됨');
       }
 
-      onFaceResults(results) {
-        if (!results.multiFaceLandmarks.length) return;
-        const forehead = results.multiFaceLandmarks[0][10]; // 또는 151
-        this.filterGroup.position.set(
-          forehead.x * 2 - 1,
-          -forehead.y * 2 + 1 + OFFSET_Y,
-          -forehead.z
-        );
-      }
+onFaceResults(results) {
+  if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) return;
+
+  const lm = results.multiFaceLandmarks[0];
+  const p = lm[ANCHOR_INDEX]; // ← 이마 포인트 사용
+
+  // MediaPipe (0~1) → 화면 정규좌표(-1~1) 변환
+  const x = p.x * 2 - 1;
+  const y = 1 - p.y * 2 + OFFSET_Y;
+
+  // z는 고정하거나 p.z를 살짝만 반영
+  this.filterGroup.position.set(x, y, -0.5);
+}
+
 
       onWindowResize() {
         if (this.camera && this.renderer) {
@@ -640,3 +649,4 @@
   </script>
 </body>
 </html>
+
