@@ -564,9 +564,37 @@
     });
 
     // 컨트롤 버튼 이벤트들
-    document.getElementById('switch-camera').addEventListener('click', () => {
+    document.getElementById('switch-camera').addEventListener('click', async () => {
       debugLog('카메라 전환 버튼 클릭됨');
-      // 카메라 전환 로직
+      const switchBtn = document.getElementById('switch-camera');
+      switchBtn.disabled = true;
+
+      if (arApp) {
+        const prevMode = arApp.facingMode;
+        arApp.facingMode = (arApp.facingMode === 'user') ? 'environment' : 'user';
+
+        try {
+          arApp.stop();
+          await arApp.init();
+          debugLog(`카메라가 ${arApp.facingMode} 모드로 전환됨`);
+        } catch (error) {
+          debugLog(`카메라 전환 실패: ${error.message}`);
+          updateStatus('후면 카메라를 찾을 수 없습니다. 전면 카메라를 계속 사용합니다.');
+
+          // 이전 모드로 복구
+          arApp.facingMode = prevMode;
+          try {
+            arApp.stop();
+            await arApp.init();
+          } catch (e) {
+            debugLog(`카메라 복구 실패: ${e.message}`);
+          }
+        } finally {
+          switchBtn.disabled = false;
+        }
+      } else {
+        switchBtn.disabled = false;
+      }
     });
 
     // 페이지 언로드 시 정리
