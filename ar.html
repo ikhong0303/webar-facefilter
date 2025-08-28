@@ -607,7 +607,13 @@ filterPopup.addEventListener('click', (e) => {
         // AR 앱 생성 및 초기화
         arApp = new SimpleARFilter();
         await arApp.init();
-        
+
+        // 현재 모드 안내
+        const switchBtn = document.getElementById('switch-camera');
+        const initialModeKor = arApp.facingMode === 'user' ? '전면' : '후면';
+        switchBtn.textContent = `카메라 전환 (${initialModeKor})`;
+        updateStatus(`${initialModeKor} 카메라 사용 중`);
+
         // UI 숨기기 및 컨트롤 표시
         ui.style.display = 'none';
         controls.style.display = 'flex';
@@ -637,16 +643,21 @@ filterPopup.addEventListener('click', (e) => {
         try {
           arApp.stop();
           await arApp.init();
+          const modeKor = arApp.facingMode === 'user' ? '전면' : '후면';
+          updateStatus(`${modeKor} 카메라 사용 중`);
+          switchBtn.textContent = `카메라 전환 (${modeKor})`;
           debugLog(`카메라가 ${arApp.facingMode} 모드로 전환됨`);
         } catch (error) {
           debugLog(`카메라 전환 실패: ${error.message}`);
-          updateStatus('후면 카메라를 찾을 수 없습니다. 전면 카메라를 계속 사용합니다.');
+          updateStatus('후면 카메라를 찾을 수 없습니다. 전면 카메라를 계속 사용합니다. 후면 카메라가 있는 기기에서 다시 시도하세요.');
 
           // 이전 모드로 복구
           arApp.facingMode = prevMode;
           try {
             arApp.stop();
             await arApp.init();
+            const modeKor = arApp.facingMode === 'user' ? '전면' : '후면';
+            switchBtn.textContent = `카메라 전환 (${modeKor})`;
           } catch (e) {
             debugLog(`카메라 복구 실패: ${e.message}`);
           }
