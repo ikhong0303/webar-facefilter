@@ -312,8 +312,9 @@ const OFFSET_Y = -0.1;
           await this.cameraUtils.start();
           const stream = this.video.srcObject;
           const actualMode = stream.getVideoTracks()[0].getSettings().facingMode;
-          debugLog(`실제 카메라 모드: ${actualMode}`);
-          updateStatus('카메라 연결됨');
+          this.facingMode = actualMode || this.facingMode;
+          debugLog(`실제 카메라 모드: ${this.facingMode}`);
+          updateStatus(`카메라 연결됨 (${this.facingMode})`);
 
           // 6. 애니메이션 시작
           debugLog('애니메이션 시작');
