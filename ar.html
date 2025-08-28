@@ -347,7 +347,7 @@ const OFFSET_Y = -0.1;
 
           const constraints = {
             video: {
-              facingMode: this.facingMode,
+              facingMode: { exact: this.facingMode },
               width: { ideal: 640, max: 1280 },
               height: { ideal: 480, max: 720 }
             },
@@ -358,6 +358,8 @@ const OFFSET_Y = -0.1;
           
           const stream = await navigator.mediaDevices.getUserMedia(constraints);
           debugLog(`스트림 획득 성공: ${stream.id}`);
+          const actualMode = stream.getVideoTracks()[0].getSettings().facingMode;
+          debugLog(`실제 카메라 모드: ${actualMode}`);
 
           // 비디오 엘리먼트 생성
           this.video = document.createElement('video');
@@ -393,7 +395,11 @@ const OFFSET_Y = -0.1;
 
         } catch (error) {
           debugLog(`카메라 설정 실패: ${error.message}`);
-          updateStatus(`카메라 오류: ${error.message}`);
+          if (error.name === 'OverconstrainedError') {
+            updateStatus('요청한 카메라를 찾을 수 없습니다. 뒷면 카메라가 없는 기기일 수 있습니다.');
+          } else {
+            updateStatus(`카메라 오류: ${error.message}`);
+          }
           throw error;
         }
       }
