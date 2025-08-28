@@ -1,5 +1,23 @@
 # webar-facefilter
 
-https://ikhong0303.github.io/webar-facefilter/
-https://ikhong0303.github.io/webar-facefilter/qr.html
-https://ikhong0303.github.io/webar-facefilter/ar.html
+브라우저에서 실행되는 간단한 얼굴 인식 AR(증강현실) 예제입니다. 모바일 기기의 카메라로 얼굴을 추적하여 화면 위에 간단한 필터 이미지를 입힙니다. 특별한 앱 설치 없이 URL만 열면 바로 체험할 수 있도록 설계되었습니다.
+
+## 주요 기능
+- **얼굴 추적 및 필터 적용**: [MediaPipe Face Mesh](https://developers.google.com/mediapipe)와 [Three.js](https://threejs.org/)를 사용하여 실시간으로 얼굴을 인식하고 PNG 이미지를 얼굴에 입힐 수 있습니다.
+- **카메라 전환**: 전면/후면 카메라를 버튼 하나로 전환할 수 있습니다.
+- **사진 촬영**: 화면에 보이는 AR 결과를 캡처하여 PNG 파일로 저장할 수 있습니다.
+- **QR 코드 페이지**: `qr.html`을 열면 AR 페이지(`ar.html`)로 연결되는 QR 코드를 생성합니다. PC에서 QR 코드를 스캔하여 모바일 기기에서 쉽게 체험할 수 있습니다.
+
+## 사용 방법
+1. HTTPS로 서비스되는 서버(GitHub Pages 등)에 이 프로젝트를 올립니다. 브라우저 보안 정책 때문에 파일로 직접 열면 카메라 접근이 차단될 수 있습니다.
+2. 모바일 브라우저에서 `ar.html`을 열거나, PC에서 `qr.html`을 열어 표시된 QR 코드를 스마트폰으로 스캔합니다.
+3. "시작" 버튼을 누르면 카메라 권한을 요청하고 얼굴 인식이 시작됩니다.
+4. 하단 버튼으로 카메라 전환 또는 사진 촬영을 할 수 있습니다.
+
+## 필터 커스터마이징
+`filters/` 폴더에 PNG 이미지를 추가하거나 기존 이미지를 교체하면 필터 모양을 변경할 수 있습니다. 파일 이름은 `Candy.png`, `Cookie.png`, `Star.png`와 같이 설정되어 있으며, 동일한 이름으로 교체하면 별도의 코드 수정 없이 적용됩니다.
+
+## 개발 메모
+- 모든 스크립트는 CDN을 통해 로드되므로 별도 설치 과정이 필요하지 않습니다.
+- 로컬에서 테스트하려면 `localhost`를 HTTPS로 구동하는 간단한 웹 서버(예: `npx http-server`)를 사용하세요.
+
