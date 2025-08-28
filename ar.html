@@ -419,8 +419,7 @@ const OFFSET_Y = -0.1;
           // 렌더러 생성
           this.renderer = new THREE.WebGLRenderer({
             alpha: true,
-            antialias: true,
-            preserveDrawingBuffer: true
+            antialias: true
           });
           this.renderer.setSize(window.innerWidth, window.innerHeight);
           this.renderer.domElement.id = 'canvas';
@@ -672,18 +671,22 @@ filterPopup.addEventListener('click', (e) => {
 
     document.getElementById('capture-photo').addEventListener('click', () => {
       debugLog('촬영 버튼 클릭됨');
-      if (!arApp || !arApp.video || !arApp.renderer) return;
+      if (!arApp || !arApp.video) return;
 
+      const width = arApp.video.videoWidth;
+      const height = arApp.video.videoHeight;
       const canvas = document.createElement('canvas');
-      const width = arApp.renderer.domElement.width;
-      const height = arApp.renderer.domElement.height;
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
 
       ctx.drawImage(arApp.video, 0, 0, width, height);
-      arApp.renderer.render(arApp.scene, arApp.camera);
-      ctx.drawImage(arApp.renderer.domElement, 0, 0, width, height);
+
+      const captureRenderer = new THREE.WebGLRenderer({ alpha: true, preserveDrawingBuffer: true });
+      captureRenderer.setSize(width, height);
+      captureRenderer.render(arApp.scene, arApp.camera);
+      ctx.drawImage(captureRenderer.domElement, 0, 0, width, height);
+      captureRenderer.dispose();
 
       const link = document.createElement('a');
       link.download = 'photo.png';
