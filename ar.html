@@ -130,6 +130,19 @@
       font-size: 14px;
     }
 
+    #capture-photo {
+      width: 80px;
+      height: 80px;
+      border-radius: 40px;
+      background: rgba(255,255,255,0.2);
+      border: 2px solid rgba(255,255,255,0.6);
+      color: #fff;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     .dropdown {
       position: relative;
     }
@@ -203,6 +216,7 @@
   <div id="controls">
     <button class="control-btn" id="filter-select">필터 선택</button>
     <button class="control-btn" id="switch-camera">카메라 전환</button>
+    <button id="capture-photo">촬영</button>
   </div>
   <div id="filter-popup">
     <img src="filters/Candy.png" class="filter-thumb" data-index="0" />
@@ -632,6 +646,26 @@ onFaceResults(results) {
       } else {
         switchBtn.disabled = false;
       }
+    });
+
+    document.getElementById('capture-photo').addEventListener('click', () => {
+      debugLog('촬영 버튼 클릭됨');
+      if (!arApp || !arApp.video || !arApp.renderer) return;
+
+      const canvas = document.createElement('canvas');
+      const width = arApp.renderer.domElement.width;
+      const height = arApp.renderer.domElement.height;
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      ctx.drawImage(arApp.video, 0, 0, width, height);
+      ctx.drawImage(arApp.renderer.domElement, 0, 0, width, height);
+
+      const link = document.createElement('a');
+      link.download = 'photo.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
     });
 
     // 페이지 언로드 시 정리
