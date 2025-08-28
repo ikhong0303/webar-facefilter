@@ -161,6 +161,13 @@
       background: rgba(255,255,255,0.2);
     }
 
+    .filter-thumb {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+      margin: 4px;
+    }
+
     .control-btn:hover {
       background: rgba(255,255,255,0.3);
     }
@@ -475,7 +482,11 @@
     FILTERS.forEach((src, idx) => {
       const name = src.split('/').pop().replace('.png','');
       const item = document.createElement('div');
-      item.textContent = name;
+      const img = document.createElement('img');
+      img.src = src;          // 예: './filters/beard.png'
+      img.alt = name;         // 접근성용 설명
+      img.className = 'filter-thumb';
+      item.appendChild(img);
       item.className = 'dropdown-item';
       item.onclick = () => {
         if (arApp) {
