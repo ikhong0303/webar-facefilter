@@ -130,16 +130,35 @@
       font-size: 14px;
     }
 
-    .filter-thumb {
-      width: 60px;
-      height: 60px;
-      margin: 0 5px;
-      border: 2px solid transparent;
-      border-radius: 8px;
-      cursor: pointer;
+    .dropdown {
+      position: relative;
     }
-    .filter-thumb:hover {
-      border-color: #fff;
+
+    .dropdown-list {
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      background: rgba(0,0,0,0.8);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+      display: none;
+      flex-direction: column;
+      margin-bottom: 8px;
+    }
+
+    .dropdown-list.show {
+      display: flex;
+    }
+
+    .dropdown-item {
+      padding: 8px 12px;
+      color: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .dropdown-item:hover {
+      background: rgba(255,255,255,0.2);
     }
 
     .control-btn:hover {
@@ -159,9 +178,11 @@
 
   <!-- 컨트롤 버튼들 -->
   <div id="controls">
-    <button class="control-btn" id="toggle-filter">필터 전환</button>
+    <div class="dropdown">
+      <button class="control-btn" id="filter-select">필터 선택</button>
+      <div id="filter-list" class="dropdown-list"></div>
+    </div>
     <button class="control-btn" id="switch-camera">카메라 전환</button>
-    <div id="filter-options"></div>
   </div>
 
   <!-- AR 컨테이너 -->
@@ -450,12 +471,24 @@
     // 메인 앱 로직
     let arApp = null;
 
+    const filterList = document.getElementById('filter-list');
     FILTERS.forEach((src, idx) => {
-      const img = document.createElement('img');
-      img.src = src;
-      img.className = 'filter-thumb';
-      img.onclick = () => arApp.setFilter(idx);
-      document.getElementById('filter-options').appendChild(img);
+      const name = src.split('/').pop().replace('.png','');
+      const item = document.createElement('div');
+      item.textContent = name;
+      item.className = 'dropdown-item';
+      item.onclick = () => {
+        if (arApp) {
+          arApp.setFilter(idx);
+        }
+        filterList.classList.remove('show');
+      };
+      filterList.appendChild(item);
+    });
+
+    document.getElementById('filter-select').addEventListener('click', () => {
+      debugLog('필터 선택 버튼 클릭됨');
+      filterList.classList.toggle('show');
     });
 
     // 브라우저 지원 체크
@@ -520,11 +553,6 @@
     });
 
     // 컨트롤 버튼 이벤트들
-    document.getElementById('toggle-filter').addEventListener('click', () => {
-      debugLog('필터 전환 버튼 클릭됨');
-      // 필터 전환 로직
-    });
-
     document.getElementById('switch-camera').addEventListener('click', () => {
       debugLog('카메라 전환 버튼 클릭됨');
       // 카메라 전환 로직
