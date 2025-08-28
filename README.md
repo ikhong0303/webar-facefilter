@@ -1,5 +1,10 @@
 # webar-facefilter
 
+배포된 웹 페이지 주소: https://ikhong0303.github.io/webar-facefilter/
+QR 코드 페이지: https://ikhong0303.github.io/webar-facefilter/qr.html
+AR 체험 페이지: https://ikhong0303.github.io/webar-facefilter/ar.html
+
+
 브라우저에서 실행되는 간단한 얼굴 인식 AR(증강현실) 예제입니다. 모바일 기기의 카메라로 얼굴을 추적하여 화면 위에 간단한 필터 이미지를 입힙니다. 특별한 앱 설치 없이 URL만 열면 바로 체험할 수 있도록 설계되었습니다.
 
 ## 주요 기능
