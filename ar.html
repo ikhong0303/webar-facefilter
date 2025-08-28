@@ -417,9 +417,10 @@ const OFFSET_Y = -0.1;
           debugLog('Three.js 카메라 생성됨');
           
           // 렌더러 생성
-          this.renderer = new THREE.WebGLRenderer({ 
+          this.renderer = new THREE.WebGLRenderer({
             alpha: true,
-            antialias: true
+            antialias: true,
+            preserveDrawingBuffer: true
           });
           this.renderer.setSize(window.innerWidth, window.innerHeight);
           this.renderer.domElement.id = 'canvas';
@@ -681,6 +682,7 @@ filterPopup.addEventListener('click', (e) => {
       const ctx = canvas.getContext('2d');
 
       ctx.drawImage(arApp.video, 0, 0, width, height);
+      arApp.renderer.render(arApp.scene, arApp.camera);
       ctx.drawImage(arApp.renderer.domElement, 0, 0, width, height);
 
       const link = document.createElement('a');
